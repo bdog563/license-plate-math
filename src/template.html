@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>License Plate Math</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow+Semi+Condensed:wght@600;700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one column. The puzzle is a license plate (embossed rim, bolts, registration sticker for the level);
+   the equation is typed below it. The plate stays light in dark mode, like a reflective plate under headlights. */
+:root {
+  --paper: #e4e8ec;        /* concrete */
+  --surface: #fbfcfd;      /* cards, inputs, keys' page */
+  --ink: #17213a;          /* navy */
+  --muted: #5a6476;
+  --rule: #cbd1da;
+  --accent: #2a58b0;       /* plate blue: focus rings, hints */
+  --accent-soft: #dfe7f6;
+  --good: #21754a;
+  --good-soft: #d8eee1;
+  --bad: #a83a2c;
+  --bad-soft: #f6dfda;
+  --key: #eef1f5;
+  --key-hover: #e0e5ec;
+  --on-lv: #ffffff;        /* text on a level-colored sticker */
+  --font-plate: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-display: "Barlow Semi Condensed", "Barlow Condensed", "Avenir Next Condensed", "Segoe UI", sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --lv-easy: #2f7d5a;
+  --lv-medium: #2c6390;
+  --lv-hard: #b0621a;
+  --lv-expert: #b4306a;
+  --lv-random: #6650b4;
+  /* the plate itself: the same in both themes */
+  --plate: #f7f5ee;
+  --plate-hi: #ffffff;
+  --plate-lo: #e9e6da;
+  --plate-ink: #1b2a55;
+  --plate-red: #b11f2e;
+  --plate-good: #1d7344;
+  --plate-bad: #b3261e;
+  --bolt: #9aa0aa;
+  --bolt-ring: #d9dce1;
+  --plate-shadow: 0 2px 0 rgba(20, 30, 50, 0.08), 0 22px 38px -22px rgba(20, 30, 50, 0.55);
+  --sky-dim: 1;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111418; --surface: #1a1e25; --ink: #e5e9f0; --muted: #9aa3b3; --rule: #2c323c;
+    --accent: #8db0f0; --accent-soft: #1d2a42; --good: #6fcf97; --good-soft: #16352a; --bad: #f08f75; --bad-soft: #3b211b;
+    --key: #1f242c; --key-hover: #29303a; --on-lv: #10131a;
+    --lv-easy: #74c99d; --lv-medium: #7fb3e3; --lv-hard: #e8a865; --lv-expert: #ee78a9; --lv-random: #b5a3ef;
+    --plate: #e6e3d7; --plate-hi: #f1efe6; --plate-lo: #d6d2c3;
+    --plate-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 24px 44px -20px rgba(0, 0, 0, 0.9); --sky-dim: 0.9;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111418; --surface: #1a1e25; --ink: #e5e9f0; --muted: #9aa3b3; --rule: #2c323c;
+  --accent: #8db0f0; --accent-soft: #1d2a42; --good: #6fcf97; --good-soft: #16352a; --bad: #f08f75; --bad-soft: #3b211b;
+  --key: #1f242c; --key-hover: #29303a; --on-lv: #10131a;
+  --lv-easy: #74c99d; --lv-medium: #7fb3e3; --lv-hard: #e8a865; --lv-expert: #ee78a9; --lv-random: #b5a3ef;
+  --plate: #e6e3d7; --plate-hi: #f1efe6; --plate-lo: #d6d2c3;
+  --plate-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 24px 44px -20px rgba(0, 0, 0, 0.9); --sky-dim: 0.9;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 720px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: flex; flex-direction: column; gap: 20px; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--font-plate); font-weight: 800; font-size: 2rem; letter-spacing: 0.01em; line-height: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.brand small { font-family: var(--font-mono); font-weight: 500; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+nav.tabs { display: flex; gap: 4px; background: var(--key); padding: 4px; border-radius: 999px; border: 1px solid var(--rule); }
+nav.tabs button { border: 0; background: transparent; padding: 6px 16px; border-radius: 999px; font-weight: 700; color: var(--muted); }
+nav.tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); }
+
+/* level picker */
+.levels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.levels label { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--rule); border-radius: 10px; background: var(--surface); cursor: pointer; min-width: 0; }
+.levels input { position: absolute; opacity: 0; pointer-events: none; }
+.levels .lv-name { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 7px; }
+.levels .lv-name::before { content: ""; width: 12px; height: 8px; border-radius: 2px; background: var(--c); flex: none; } /* a little sticker */
+.levels label:has(input:checked) { border-color: var(--c); box-shadow: inset 0 0 0 1.5px var(--c); }
+.levels label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 640px) { .levels { grid-template-columns: repeat(2, minmax(0, 1fr)); } .levels label:last-of-type { grid-column: 1 / -1; } }
+
+/* the license plate: 2:1 like a real one, with an embossed rim and four mounting bolts */
+.plate { position: relative; isolation: isolate; width: 100%; max-width: 560px; margin-inline: auto; aspect-ratio: 2 / 1; border-radius: 18px; padding: 0 clamp(16px, 4.4vw, 26px);
+  display: grid; grid-template-rows: 22% 1fr 20%; color: var(--plate-ink); overflow: hidden; background: var(--plate); box-shadow: var(--plate-shadow); }
+/* the backdrop: four shaded functions over a sunset or daytime sky (set by data-sky); the slogan sits under its x-axis */
+.plate-sky { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; filter: brightness(var(--sky-dim)); }
+.plate { --sky0: #a9cdf0; --sky1: #cfe2f6; --sky2: #e9f1f9; --sky3: #f6f8f6; --ground: #f5f7f3; }
+.plate[data-sky="sunset"] { --sky0: #f6c1aa; --sky1: #f8d2bc; --sky2: #fae2d0; --sky3: #fbf0e6; --ground: #fbf1e7; }
+.plate-sky .s0 { stop-color: var(--sky0); } .plate-sky .s1 { stop-color: var(--sky1); } .plate-sky .s2 { stop-color: var(--sky2); } .plate-sky .s3 { stop-color: var(--sky3); }
+.plate-sky .ground { fill: var(--ground); }
+.plate-sky .sun-set, .plate-sky .sun-day, .plate-sky .moon, .plate-sky .stars { display: none; }
+.plate[data-sky="sunset"] .sun-set, .plate[data-sky="day"] .sun-day, .plate[data-sky="night"] .moon, .plate[data-sky="night"] .stars { display: inline; }
+/* night: a rare dark sky (about 1 plate in 20), so the plate's own colors flip light */
+.plate[data-sky="night"] { --sky0: #0e1836; --sky1: #1a2a55; --sky2: #2c3f73; --sky3: #42568c; --ground: #1f2b4b;
+  --plate: #1a2547; --plate-ink: #f1ede0; --plate-red: #ff9d8f; --plate-good: #7ddca5; --plate-bad: #ff9a8a; }
+.plate[data-sky="night"] .digit { text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
+.plate[data-sky="night"] .plate-sky .fills, .plate[data-sky="night"] .plate-sky .lines { filter: brightness(1.35) saturate(1.1); }
+.plate[data-sky="night"] .plate-sky .fills path { fill-opacity: 0.3; }
+.plate[data-sky="night"] .plate-sky .lines { stroke-opacity: 1; }
+.plate[data-sky="night"] .plate-sky .axes, .plate[data-sky="night"] #arAxis path { stroke: #e6e9f5; }
+.plate::before { content: ""; position: absolute; z-index: 1; inset: clamp(5px, 1.4vw, 8px); border: clamp(2px, 0.6vw, 3px) solid var(--plate-ink); border-radius: 12px; pointer-events: none; }
+.plate::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  --b: radial-gradient(circle, var(--bolt) 0 2.5px, var(--bolt-ring) 3px 5.5px, rgba(0, 0, 0, 0.18) 6px, transparent 7px);
+  background: var(--b) 25% 9% / 16px 16px no-repeat, var(--b) 75% 9% / 16px 16px no-repeat, var(--b) 25% 91% / 16px 16px no-repeat, var(--b) 75% 91% / 16px 16px no-repeat; }
+.plate-top, .plate-foot { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; }
+.plate-state { grid-column: 2; font-family: var(--font-plate); font-weight: 800; font-size: clamp(0.92rem, 3.4vw, 1.45rem); letter-spacing: 0.12em; text-transform: uppercase; color: var(--plate-red); white-space: nowrap; }
+.plate-motto { grid-column: 2; font-family: var(--font-plate); font-weight: 600; font-size: clamp(0.62rem, 2.2vw, 0.86rem); letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
+.plate-note { margin: -8px 0 0; text-align: center; font-size: 0.88rem; color: var(--muted); }
+.plate-note b { color: var(--ink); }
+/* registration sticker in the corner: the level, and the points while it's open */
+.sticker { grid-column: 3; justify-self: end; display: grid; justify-items: center; line-height: 1.05; padding: 3px 7px; border-radius: 4px; background: var(--c); color: var(--on-lv);
+  font-family: var(--font-plate); font-weight: 800; font-size: clamp(0.62rem, 2vw, 0.82rem); letter-spacing: 0.08em; text-transform: uppercase; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.sticker small { font-size: 0.82em; font-weight: 700; opacity: 0.9; }
+.sticker-reveal { grid-column: 3; justify-self: end; display: grid; line-height: 1.05; padding: 3px 7px; border-radius: 4px; background: none; color: var(--plate-ink);
+  border: 1.5px dashed currentColor; font-family: var(--font-plate); font-weight: 700; font-size: clamp(0.6rem, 1.9vw, 0.78rem); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
+.sticker-reveal:hover { opacity: 1; }
+.digits { position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; gap: clamp(2px, 1.2vw, 10px); }
+.digit { font-family: var(--font-plate); font-weight: 600; font-size: clamp(3.4rem, 19vw, 7.6rem); line-height: 1; width: 0.72em; text-align: center; padding-block: 0.04em 0; border-radius: 10px; position: relative;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85), 0 -1px 0 rgba(0, 0, 0, 0.18), 0 3px 3px rgba(20, 30, 60, 0.22); transition: color .15s, background .15s; } /* embossed */
+.digit.used { color: var(--plate-good); background: color-mix(in srgb, var(--plate-good) 11%, transparent); }
+.digit.used::after { content: "✓"; position: absolute; top: 0.06em; right: 0.02em; font-size: 0.16em; font-family: var(--font-body); text-shadow: none; }
+.digit.wrong { color: var(--plate-bad); background: color-mix(in srgb, var(--plate-bad) 12%, transparent); }
+
+/* solved stamp across the plate */
+.solved-stamp { position: absolute; z-index: 2; left: 50%; top: 50%; font-family: var(--font-plate); font-weight: 800; font-size: clamp(1.4rem, 6vw, 2.3rem); letter-spacing: 0.16em; text-transform: uppercase; color: var(--plate-red);
+  border: 3px solid var(--plate-red); border-radius: 8px; padding: 0 14px; transform: translate(-50%, -50%) rotate(-10deg); background: color-mix(in srgb, var(--plate) 72%, transparent); pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) { .solved-stamp:not([hidden]) { animation: thunk .35s cubic-bezier(.2,1.6,.4,1); } }
+@keyframes thunk { from { transform: translate(-50%, -50%) rotate(-10deg) scale(1.8); opacity: 0; } to { transform: translate(-50%, -50%) rotate(-10deg) scale(1); opacity: 1; } }
+/* small plates: the Rules example and the box for typing your own */
+table.ops.states td:first-child { font-family: var(--font-body); font-size: 0.95rem; }
+.mini-plate.state-chip { font-size: 0.9rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--plate-red); white-space: nowrap; }
+.mini-plate { display: inline-block; font-family: var(--font-plate); font-weight: 700; letter-spacing: 0.12em; color: var(--plate-ink); background: var(--plate); border: 2px solid var(--plate-ink);
+  border-radius: 6px; box-shadow: 0 0 0 2px var(--plate), 0 0 0 3px rgba(0, 0, 0, 0.18); padding: 0 8px; }
+
+/* equation entry */
+.entry { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.wrap > * { min-width: 0; }
+.eq-row { display: flex; gap: 8px; }
+#eq { min-width: 0; width: 100%; font-family: var(--font-mono); font-size: 1.35rem; font-weight: 500; padding: 12px 14px; border-radius: 10px; border: 2px solid var(--rule); background: var(--surface); color: var(--ink); }
+#eq:focus { border-color: var(--ink); outline: none; }
+.eq-box { position: relative; flex: 1; min-width: 0; }
+.eq-bars { position: absolute; inset: 0; border: 2px solid transparent; padding: 12px 14px; font-family: var(--font-mono); font-size: 1.35rem; font-weight: 500; white-space: pre; overflow: hidden; clip-path: inset(0 16px); color: transparent; pointer-events: none; } /* clipped like the box's own text: inside border + padding */
+.eq-bars > span { display: inline-block; }
+/* bar over what a √ applies to; --h stacks an outer root's bar above an inner one */
+.rad { position: relative; }
+.rad::before, .rad::after { content: ""; position: absolute; left: -0.06em; top: calc(0.1em - (var(--h) - 1) * 0.18em); border: 0 solid currentColor; }
+.rad::before { right: 0; border-top-width: 0.07em; }
+.rad::after { height: calc((var(--h) - 1) * 0.18em); border-left-width: 0.07em; } /* joins a raised bar down to its √ */
+.eq-bars .rad::before, .eq-bars .rad::after { border-color: var(--ink); }
+.btn { border: 0; min-width: 0; border-radius: 10px; padding: 12px 18px; font-weight: 700; background: var(--ink); color: var(--surface); white-space: nowrap; }
+.btn:hover { filter: brightness(1.12); }
+.btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--rule); }
+.btn.ghost:hover { background: var(--key-hover); filter: none; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.keys { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+.keys button { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 600; padding: 9px 0; border-radius: 8px; border: 1px solid var(--rule); background: var(--key); }
+.keys button:hover { background: var(--key-hover); }
+.keys button.wide { font-family: var(--font-body); font-size: 0.85rem; grid-column: span 2; }
+@media (max-width: 480px) { .keys { gap: 4px; } .keys button { font-size: 1rem; } }
+.preview { display: flex; gap: 8px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 0.9rem; color: var(--muted); }
+.preview span { background: var(--key); border-radius: 6px; padding: 3px 8px; }
+.preview b { color: var(--ink); font-weight: 600; }
+.msg { border-radius: 10px; padding: 10px 14px; font-size: 0.95rem; }
+.msg.good { background: var(--good-soft); color: var(--good); font-weight: 700; }
+.msg.bad { background: var(--bad-soft); color: var(--bad); }
+.msg.info { background: var(--accent-soft); color: var(--ink); }
+.msg code { font-family: var(--font-mono); font-weight: 600; }
+.msg .answers { display: grid; gap: 8px; font-weight: 400; color: var(--ink); }
+.msg .answers > div { display: grid; gap: 2px; }
+.msg .answers .lbl { font-size: 0.82rem; color: var(--muted); }
+.msg.good .answers { margin-top: 8px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions .spacer { flex: 1; }
+.hints { display: grid; gap: 6px; padding: 0; margin: 0; list-style: none; }
+.hints li { background: var(--surface); border-left: 3px solid var(--accent); border-radius: 4px 8px 8px 4px; padding: 8px 12px; font-size: 0.95rem; }
+.hints li b { font-family: var(--font-display); font-size: 0.82rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-right: 6px; }
+.hints code { font-family: var(--font-mono); font-weight: 600; }
+
+/* stats + your own plate */
+.lower { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end; }
+@media (max-width: 560px) { .lower { grid-template-columns: 1fr; } }
+.stats { display: flex; gap: 22px; flex-wrap: wrap; }
+.stat { display: flex; flex-direction: column; }
+.stat .v { font-family: var(--font-plate); font-weight: 700; font-size: 1.7rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat .k { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.custom { display: flex; gap: 10px; align-items: center; }
+.custom label { font-size: 0.85rem; color: var(--muted); }
+#custom { width: 3.8em; font-size: 1.3rem; line-height: 1.5; text-align: center; padding: 0 6px; }
+#custom::placeholder { color: color-mix(in srgb, var(--plate-ink) 38%, transparent); }
+#custom:focus { outline: 3px solid var(--accent); outline-offset: 4px; }
+.custom .btn { padding: 8px 12px; }
+
+/* rules */
+.rules { display: grid; gap: 22px; }
+.rules h2 { font-family: var(--font-display); font-weight: 700; font-size: 2rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.rules h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; margin: 0 0 8px; }
+.rules p { margin: 0; max-width: 65ch; }
+.rules section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.example { font-family: var(--font-mono); font-size: 1.05rem; background: var(--surface); border-radius: 10px; padding: 12px 16px; display: grid; gap: 8px; justify-items: start; }
+.example .mini-plate { font-size: 1.6rem; }
+.example .note { font-family: var(--font-body); font-size: 0.85rem; color: var(--muted); }
+.table-wrap { overflow-x: auto; }
+table.ops { border-collapse: collapse; width: 100%; background: var(--surface); border-radius: 10px; overflow: hidden; font-size: 0.95rem; }
+table.ops th, table.ops td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.ops th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+table.ops td:first-child { font-family: var(--font-mono); font-weight: 600; font-size: 1.1rem; white-space: nowrap; }
+table.ops td code, .rules code { font-family: var(--font-mono); font-weight: 600; white-space: nowrap; }
+table.ops tr:last-child td { border-bottom: 0; }
+ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 65ch; }
+.lv-list { display: grid; gap: 8px; }
+.lv-row { display: grid; grid-template-columns: 7.5rem 1fr; gap: 12px; align-items: baseline; padding: 10px 14px; background: var(--surface); border-radius: 10px; border-left: 4px solid var(--c); }
+.lv-row strong { font-family: var(--font-display); font-size: 1.1rem; }
+.lv-row span { min-width: 0; }
+@media (max-width: 480px) { .lv-row { grid-template-columns: 1fr; gap: 2px; } }
+@media (max-width: 560px) { /* the states table becomes one small card per state */
+  table.ops.states thead { display: none; }
+  table.ops.states, table.ops.states tbody, table.ops.states tr, table.ops.states td { display: block; }
+  table.ops.states tr { padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+  table.ops.states tr:last-child { border-bottom: 0; }
+  table.ops.states td { padding: 2px 0; border: 0; }
+  table.ops.states td:nth-child(2) { font-weight: 700; margin-top: 4px; }
+  table.ops.states td:nth-child(3) { font-size: 0.85rem; }
+}
+.muted { color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">License Plate Math <small>every plate adds up</small></div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button id="tab-play" role="tab" aria-selected="true" aria-controls="view-play">Play</button>
+      <button id="tab-rules" role="tab" aria-selected="false" aria-controls="view-rules">Rules</button>
+    </nav>
+  </header>
+
+  <!-- PLAY -->
+  <main id="view-play" role="tabpanel" aria-labelledby="tab-play" style="display:grid;grid-template-columns:minmax(0,1fr);gap:20px">
+    <fieldset class="levels" id="levels" style="border:0;padding:0;margin:0;min-width:0">
+      <legend class="muted" style="font-size:.85rem;margin-bottom:8px;padding:0">Difficulty</legend>
+    </fieldset>
+
+    <section class="plate" data-sky="day" aria-label="License plate">
+      <svg class="plate-sky" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="s0"/><stop offset="0.4" class="s1"/><stop offset="0.75" class="s2"/><stop offset="1" class="s3"/></linearGradient>
+          <marker id="arAxis" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#1b2a55" stroke-opacity="0.5" stroke-width="1.6"/></marker>
+          <marker id="arBlue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#3b82c4" stroke-width="2"/></marker>
+          <mask id="moonCut"><rect width="300" height="150" fill="#fff"/><circle cx="43" cy="47" r="9.5" fill="#000"/></mask>
+          <marker id="arOrange" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#d9772a" stroke-width="2"/></marker>
+        </defs>
+        <rect class="ground" width="300" height="150"/>
+        <rect width="300" height="120" fill="url(#skyGrad)"/>
+        <circle class="sun-set" cx="38" cy="72" r="11" fill="#f7b37a" stroke="#e07a3c" stroke-width="1.6"/>
+        <circle class="sun-day" cx="38" cy="52" r="11" fill="#fde39a" stroke="#d9a72e" stroke-width="1.6"/>
+        <circle class="moon" cx="38" cy="52" r="11" fill="#f4eed2" mask="url(#moonCut)"/>
+        <g class="stars" fill="#fff6dc"><circle cx="62" cy="30" r="1"/><circle cx="96" cy="22" r="0.8"/><circle cx="128" cy="38" r="1.1"/><circle cx="172" cy="34" r="0.8"/><circle cx="206" cy="24" r="1"/><circle cx="236" cy="40" r="0.9"/><circle cx="268" cy="32" r="1.1"/><circle cx="28" cy="80" r="0.8"/><circle cx="150" cy="56" r="0.7"/><circle cx="252" cy="62" r="0.8"/><circle cx="84" cy="58" r="0.7"/></g>
+        <g class="fills">
+        <path d="M18 100 Q 34.5 84 51 100 T 84 100 T 117 100 T 150 100 T 183 100 T 216 100 T 249 100 T 282 100 V120 H18Z" fill="#3b82c4" fill-opacity="0.2"/>
+        <path d="M38 120 C 73 120, 85 62, 113 62 S 153 120, 188 120Z" fill="#e0607a" fill-opacity="0.2"/>
+        <path d="M150 120 Q 213 36 276 120Z" fill="#2f9a6a" fill-opacity="0.18"/>
+        <path d="M18 118 C 120 118, 200 112, 268 46 L268 120 H18Z" fill="#e8913a" fill-opacity="0.14"/>
+        </g>
+        <g class="lines" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.8">
+          <path d="M18 100 Q 34.5 84 51 100 T 84 100 T 117 100 T 150 100 T 183 100 T 216 100 T 249 100 T 282 100" stroke="#3b82c4" marker-end="url(#arBlue)"/>
+          <path d="M38 120 C 73 120, 85 62, 113 62 S 153 120, 188 120" stroke="#e0607a"/>
+          <path d="M150 120 Q 213 36 276 120" stroke="#2f9a6a"/>
+          <path d="M18 118 C 120 118, 200 112, 268 46" stroke="#d9772a" marker-end="url(#arOrange)"/>
+        </g>
+        <g class="axes" stroke="#1b2a55" stroke-opacity="0.5" stroke-width="1"><path d="M12 120 H286" marker-end="url(#arAxis)"/><path d="M18 120 V34" marker-end="url(#arAxis)"/></g>
+        <g class="axes" stroke="#1b2a55" stroke-opacity="0.45" stroke-width="0.9"><path d="M48 118v4M78 118v4M108 118v4M138 118v4M168 118v4M198 118v4M228 118v4M258 118v4"/></g>
+      </svg>
+      <div class="plate-top"><span class="plate-state" id="plateState">Minusota</span><span class="sticker" id="lvstamp">Easy</span><button type="button" class="sticker-reveal" id="lvReveal" aria-label="Show difficulty" hidden><span>Show</span><span>level</span></button></div>
+      <div class="digits" id="digits" aria-label="Digits"></div>
+      <div class="plate-foot"><span class="plate-motto" id="plateSlogan">Land of 10,000 Plates</span></div>
+      <div class="solved-stamp" id="solvedStamp" hidden>Solved</div>
+    </section>
+    <p class="plate-note">Keep the digits <b>in order</b> and add one <b>=</b> sign.</p>
+
+    <section class="entry" aria-label="Your equation">
+      <form class="eq-row" id="eqForm" autocomplete="off">
+        <div class="eq-box"><input id="eq" type="text" inputmode="text" spellcheck="false" aria-label="Type your equation" placeholder="e.g. 1 = 3! − 7 + 2"><div class="eq-bars" id="eqBars" aria-hidden="true"></div></div>
+        <button class="btn" type="submit" id="checkBtn">Check</button>
+      </form>
+      <div class="keys" id="keys" aria-label="Symbol keys"></div>
+      <div class="preview" id="preview" aria-live="polite"></div>
+      <div class="msg" id="msg" hidden aria-live="polite"></div>
+      <ol class="hints" id="hints"></ol>
+      <div class="actions">
+        <button class="btn ghost" type="button" id="hintBtn">Get a hint</button>
+        <button class="btn ghost" type="button" id="revealBtn">Show answer</button>
+        <span class="spacer"></span>
+        <button class="btn" type="button" id="newBtn">New plate</button>
+      </div>
+    </section>
+
+    <section class="lower">
+      <div class="stats" aria-label="Your stats">
+        <div class="stat"><span class="v" id="sScore">0</span><span class="k">Points</span></div>
+        <div class="stat"><span class="v" id="sSolved">0</span><span class="k">Solved</span></div>
+        <div class="stat"><span class="v" id="sStreak">0</span><span class="k">Streak</span></div>
+        <div class="stat"><span class="v" id="sBest">0</span><span class="k">Best streak</span></div>
+      </div>
+      <form class="custom" id="customForm">
+        <label for="custom">Try your own plate</label>
+        <input id="custom" class="mini-plate" type="text" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="4797" aria-label="Four digits">
+        <button class="btn ghost" type="submit">Play</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- RULES -->
+  <article id="view-rules" role="tabpanel" aria-labelledby="tab-rules" class="rules" hidden>
+    <section>
+      <h2>Turn four digits into a true equation</h2>
+      <p>You get four digits. Keep them in the order they're printed, use each one exactly once, and place a single <code>=</code> sign so both sides come out equal. Every one of the 10,000 possible plates, from 0000 to 9999, has at least one solution.</p>
+      <div class="example">
+        <span class="mini-plate">1372</span>
+        <span>1 = 3! − 7 + 2</span>
+        <span class="note">3! is 6, and 6 − 7 + 2 = 1. The = sign can go after any digit.</span>
+      </div>
+    </section>
+
+    <section>
+      <h3>Allowed operations</h3>
+      <div class="table-wrap">
+        <table class="ops">
+          <thead><tr><th>Symbol</th><th>What it does</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td>+ − × ÷</td><td>Add, subtract, multiply, divide</td><td><code>8 ÷ 2 = 4</code></td></tr>
+            <tr><td>−</td><td>Negative sign in front of a number or group</td><td><code>−1 + 3! = 7 − 2</code></td></tr>
+            <tr><td>( )</td><td>Group anything</td><td><code>(4 + 4) × 2</code></td></tr>
+            <tr><td>47</td><td>Join neighbouring digits into one number</td><td><code>12 = 8 + 4</code></td></tr>
+            <tr><td>.7</td><td>Put a decimal point in a digit or joined number</td><td><code>5.2 = 3! − .8</code></td></tr>
+            <tr><td>^</td><td>Power, using a digit or expression as the exponent. A fraction as the exponent takes a root, like <code>8^(1 ÷ 3)</code> = 2</td><td><code>7^2 = 49</code></td></tr>
+            <tr><td>√</td><td>Square root</td><td><code>√9 = 3</code></td></tr>
+            <tr><td>ⁿ√</td><td>nth root, with the index from the plate: type the index digits, then press ⁿ√ (or type <code>root</code>). Any index except 0, and odd roots of negatives are fine</td><td><code>³√8 = 2</code></td></tr>
+            <tr><td>!</td><td>Factorial: 5! = 5 × 4 × 3 × 2 × 1. Also 0! = 1</td><td><code>3! = 6</code></td></tr>
+            <tr><td>!!</td><td>Double factorial: multiply every other number down</td><td><code>7!! = 7 × 5 × 3 × 1 = 105</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h3>Not allowed</h3>
+      <ul class="plain">
+        <li>Reordering digits, skipping one, or using one twice.</li>
+        <li>Adding any number that isn't on the plate. Exponents are fine when the exponent comes from the plate (<code>7^2</code> on a plate with a 7 then a 2), but <code>4²</code> on its own adds a new 2.</li>
+        <li>Joining or splitting results. If you work out 4 × 7 = 28, it's just 28: you can't split it into 2 and 8, glue it to another number, or turn it into .28.</li>
+        <li>A whole number that starts with 0, like <code>07</code>. Decimals such as <code>0.7</code> and <code>.07</code> are fine.</li>
+        <li>A 0th root, like <code>⁰√8</code>.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3>How symbols combine</h3>
+      <ul class="plain">
+        <li>× and ÷ happen before + and −, as usual.</li>
+        <li>√ applies to the number or bracket right after it, so <code>√9!</code> means <code>(√9)!</code> = 6. Write <code>√(9!)</code> for the root of 9!. nth roots work the same way: <code>³√8!</code> is <code>(³√8)!</code>.</li>
+        <li>The ⁿ√ key turns all the digits just before it into the index, so 2, 3, ⁿ√, 8 makes <code>²³√8</code>, the 23rd root of 8. Write <code>2 × ³√8</code> to multiply. The √ key is always a square root.</li>
+        <li>A leading minus applies after factorials and powers: <code>−3!</code> is −6 and <code>−2^2</code> is −4. Write <code>(−2)^2</code> for 4.</li>
+        <li>^ comes before × and ÷ and groups from the right, so <code>2^3^2</code> is 2^9. Factorials happen first: <code>2^3!</code> is 2^6.</li>
+        <li>You can type <code>*</code> or <code>x</code>, <code>/</code>, <code>-</code>, <code>**</code> and <code>sqrt</code>; they turn into × ÷ − ^ √ as you type, and <code>3root8</code> becomes <code>³√8</code>. The keys under the input box add the special symbols.</li>
+        <li>A bar over the top shows what each √ covers.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3>Difficulty levels</h3>
+      <p class="muted">Levels come from solving all 10,000 plates by computer and noting the simplest tools each one needs.</p>
+      <div class="lv-list" id="lvRules"></div>
+    </section>
+
+    <section>
+      <h3>Scoring</h3>
+      <ul class="plain">
+        <li>Solving earns 1 point on Easy, 2 on Medium, 4 on Hard and 6 on Expert. A Random plate, or one you type in yourself, earns the points for its real level.</li>
+        <li>There are four hints, each more specific than the last: which advanced tools you can't do without, where the <code>=</code> goes, exactly which operations it uses, and what both sides equal. Each costs 1 point from that puzzle, but a solve is always worth at least 1.</li>
+        <li>Showing the answer or skipping to a new puzzle ends your streak.</li>
+        <li>Any correct equation counts, not just the one the game has on file.</li>
+        <li>After you solve or show the answer, you'll see the most basic answer and, when a different one is shorter, the one with the fewest operations. Every symbol counts as an operation except brackets and the <code>=</code> sign.</li>
+        <li>Most basic means + − × ÷ alone if that works, otherwise the easiest level of tools that does. Ties go to the lowest score, where + − × ÷ score 1, √ ! ^ score 2, and . !! nth roots and fractional powers score 3, then to the answer with the least work under √ and ! (<code>√(2 + 6 ÷ √9)</code> is harder than <code>(√9)!</code>).</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3>Where the plates come from</h3>
+      <p class="muted">Each new plate is issued by one of these states, picked at random. About 1 plate in 20 turns up at night.</p>
+      <div class="table-wrap">
+        <table class="ops states">
+          <thead><tr><th>State</th><th>Slogan</th><th>A riff on</th></tr></thead>
+          <tbody id="statesRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </article>
+</div>
+
+<script>
+/*DATA*/
+/*CORE*/
+/*APP*/
+</script>
