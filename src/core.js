@@ -330,6 +330,34 @@ const Core = (() => {
     for (const side of normalize(src).split('=')) walk(parse(tokenize(side)));
     return tier;
   }
-  return { check, fmt, tokenize, parse, evaluate, normalize, radicands, opCount, toolTier };
+  // ---- Random's tool switches ----
+  // The switches an answer uses: s √, f !, p ^ (whole or fractional powers), d decimal point, w !!, r nth root.
+  function toolCodes(src) {
+    const used = new Set(), code = { sqrt: 's', fact: 'f', pow: 'p', dfact: 'w', root: 'r' };
+    const walk = (n) => {
+      if (n.k === 'num') { if (n.t.text.includes('.')) used.add('d'); return; }
+      if (code[n.k]) used.add(code[n.k]);
+      if (n.a) walk(n.a);
+      if (n.b) walk(n.b);
+    };
+    for (const side of normalize(src).split('=')) walk(parse(tokenize(side)));
+    return used;
+  }
+  // A plate's options field (see solver/build_data.py) as [{ codes, sol }], most basic first.
+  function parseOptions(field, basic) {
+    return field ? field.split(';').map((o) => {
+      const i = o.indexOf(':');
+      return { codes: new Set(o.slice(0, i).split('+').filter(Boolean)), sol: o.slice(i + 1) || basic };
+    }) : [];
+  }
+  // The answer to point a player to with the switches in `off` turned off: the most basic answer if it avoids them,
+  // otherwise the most basic option that does; null when the plate can't be done without an off switch.
+  function answerFor(basic, options, off) {
+    const avoids = (codes) => ![...codes].some((c) => off.has(c));
+    if (!off.size || avoids(toolCodes(basic))) return basic;
+    const o = options.find((x) => avoids(x.codes));
+    return o ? o.sol : null;
+  }
+  return { check, fmt, tokenize, parse, evaluate, normalize, radicands, opCount, toolTier, toolCodes, parseOptions, answerFor };
 })();
 if (typeof module !== 'undefined') module.exports = Core;

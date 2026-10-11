@@ -7,7 +7,7 @@ A browser puzzle game: keep four digits in order, add operations and one `=` to 
 - `src/template.html`: page layout, CSS (light/dark color tokens at the top; the puzzle is drawn as a license plate whose `--plate-*` colors stay light in both themes; its backdrop is an inline SVG of shaded functions over a sunset or daytime sky, picked per state by `data-sky`, or a night sky for 5% of plates, which flips the plate's colors light) and the Rules screen text.
 - `src/app.js`: game UI: difficulty levels, keypad, hints, scoring, stats (saved in localStorage), and `STATES`, the pun states, slogans and skies the plate cycles through.
 - `src/core.js`: the equation checker: tokenizer, parser, exact BigInt-fraction math (floats only for irrational roots/powers), plus `opCount` and `toolTier` (how answers are scored; shared by the game and the tests).
-- `src/data.js`: generated puzzle data, one line per ticket 0000–9999: `tier|count|basic|fewest|needs` (`fewest` is empty when `basic` already has the fewest operations; `needs` is the tools of its tier a ticket can't do without, used by the first hint; codes in build_data.py).
+- `src/data.js`: generated puzzle data, one line per ticket 0000–9999: `tier|count|basic|fewest|needs|options` (`fewest` is empty when `basic` already has the fewest operations; `needs` is the tools of its tier a ticket can't do without, used by the first hint; `options` is every smallest set of Random's tool switches that solves it, each with its most basic answer; codes in build_data.py).
 - `solver/solve.py`: Python solver that grades every ticket (`tier` 1–3, see build_data.py docstring).
 - `solver/build_data.py`: regenerates `src/data.js`.
 - `build.py`: assembles `index.html` from `src/`.
@@ -34,6 +34,7 @@ A browser puzzle game: keep four digits in order, add operations and one `=` to 
 - A ticket is "open" if it has ≥5 routes or its most basic answer is one operation (like 15 = 7 + 8).
 - Easy: tier 1 and open. Medium: tier 1 not open, or tier 2 open. Hard: tier 2 not open. Expert: tier 3.
 - Random: draws equally from every ticket with fewer than two zeros and hides the level (stamp and "Worth N points") until the player clicks "Show difficulty", takes a hint, solves or shows the answer. Points still follow the real level. "Play your own digits" switches to Random.
+- Random's tool switches (`SWITCHES` in app.js: √ ! ^ ⁿ√ !! ., fractional powers ride on ^): Random only deals plates with an `options` set that avoids every switched-off tool. Hints, Show answer and Restricted's tier check then use `Core.answerFor` (the most basic answer that avoids them), and Restricted grays out those keys. Paused in Eco. The solver finds the sets with `mex()`, a one-pass version of `make()` that tracks tools instead of trees; the two must search exactly the same way.
 - Tickets with two or more zeros are excluded from all random draws, Random included (still playable via "Play your own digits").
 
 ## Challenge modes (the Challenge switch; `MODES` in `src/app.js`, saved in stats)

@@ -39,7 +39,7 @@ def add(x,y): return (x[0]+y[0],x[1]+y[1],x[2]+y[2],x[3]+y[3],x[4]+y[4],x[5]+y[5
 # Advanced tools by tier (+ − × ÷, minus signs and joined digits are always on). make() takes any set of them.
 TIER_TOOLS={1:frozenset(),2:frozenset({'sqrt','fact','pow'})}
 TIER_TOOLS[3]=TIER_TOOLS[2]|{'dec','dfact','root','fpow'}
-def make(tools,rank='basic',cache=None):
+def make(tools,rank='basic',cache=None,memo_len=None):  # memo_len: only remember digit groups up to this long
     vec=lambda **k: tuple(k.get(n,0) for n in RANK[rank])
     ZERO,BASIC,NEG,T2,T3,FRAC=vec(),vec(score=1,ops=1),vec(score=1,ops=1,neg=1),vec(score=2,ops=1),vec(score=3,ops=1),vec(frac=1)
     BRS=(ZERO,vec(br=1),vec(br=2))
@@ -47,7 +47,17 @@ def make(tools,rank='basic',cache=None):
     def under(c):  # cost of c once a √ ! !! sits on top of it
         l=list(c); l[NEST]+=c[OPS]; return tuple(l)
     track=OPS!=0  # when ops isn't ranked first, also keep the leanest tree, which is cheaper to build √ ! !! on
-    @lru_cache(cache)
+    def cached(f):
+        if memo_len is None: return lru_cache(cache)(f)
+        memo={}
+        def g(s):
+            r=memo.get(s)
+            if r is None:
+                r=f(s)
+                if len(s)<=memo_len: memo[s]=r
+            return r
+        return g
+    @cached
     def ex(s):
         res={}; lean={}
         def put(v,c,t):
@@ -186,3 +196,75 @@ def needs(d,tier):
             if tools not in _solvers: _solvers[tools]=make(tools,cache=512)
             if matches(_solvers[tools],d): out.append(c)
     return out
+
+# ---- Random's tool switches ----
+# Six switches, each standing for solver tools: s √, f !, p ^ (whole and fractional powers, both typed with ^),
+# d decimal point, w !!, r nth root.
+SWITCH={'s':('sqrt',),'f':('fact',),'p':('pow','fpow'),'d':('dec',),'w':('dfact',),'r':('root',)}
+BIT={c:1<<i for i,c in enumerate(SWITCH)}
+def keep_min(ms):  # the smallest masks among ms: a mask that contains another one is never needed
+    out=[]
+    for m in sorted(set(ms),key=lambda m:bin(m).count('1')):
+        if not any(o&m==o for o in out): out.append(m)
+    return out
+def merge(o,ms):
+    for m in ms:
+        if any(x&m==x for x in o): continue
+        o=[x for x in o if x&m!=m]+[m]
+    return o
+@lru_cache(None)
+def mex(s):
+    """value → the smallest sets of switches (bit masks) that reach it. The same search as make() with every
+    tool on (same bounds, same two rounds of minus √ ! !!), tracking tools instead of the cheapest tree,
+    so one pass answers "can this be done with these switches?" for every combination at once."""
+    res={}
+    def put(v,ms):
+        o=res.get(v)
+        res[v]=list(ms) if o is None else merge(o,ms)
+    def plus(ms,c): return keep_min([m|BIT[c] for m in ms])
+    if not (len(s)>1 and s[0]=='0'): put(F(int(s)),[0])
+    for p in range(len(s)): put(F(int(s),10**(len(s)-p)),[BIT['d']])
+    for i in range(1,len(s)):
+        L=mex(s[:i]);R=mex(s[i:])
+        for a,la in L.items():
+            for b,lb in R.items():
+                ms=la if lb==[0] else lb if la==[0] else keep_min([x|y for x in la for y in lb])
+                c=[a+b,a-b,a*b]
+                if b: c.append(a/b)
+                for k in c:
+                    if abs(k.numerator)<10**7 and k.denominator<10**5: put(k,ms)
+                k=None
+                if b.denominator==1 and (abs(b)<=10 and a!=0 and abs(a.numerator)<=1000 and a.denominator<=1000
+                                         or abs(a) in (0,1) and abs(b)<=20000 and (a!=0 or b>0)): k=a**int(b)
+                elif 1<b.denominator<=10 and abs(b.numerator)<=10 and 0<=a and a.numerator<=1000 and a.denominator<=1000: k=fpow(a,b)
+                if k is not None and abs(k.numerator)<10**7 and k.denominator<10**5: put(k,plus(ms,'p'))
+        if s[0]!='0':
+            n=int(s[:i])
+            for b,lb in R.items():
+                k=nroot(b,n)
+                if k is not None and abs(k.numerator)<10**7 and k.denominator<10**5: put(k,plus(lb,'r'))
+    for _ in range(2):
+        for v,ms in list(res.items()):  # tool sets as they stood when the round began, like make()'s list of values
+            put(-v,ms)
+            if v.denominator==1 and (v==0 or 3<=v<=10): put(F(math.factorial(int(v))),plus(ms,'f'))
+            r=isqrt_frac(v)
+            if r is not None: put(r,plus(ms,'s'))
+            if v.denominator==1 and 3<=v<=12: put(F(dfact(int(v))),plus(ms,'w'))
+    return res
+def switch_options(d):
+    """Every smallest set of switches that solves plate d, as codes like 's' or 'd+w'; [''] when none is needed."""
+    ms=[]
+    for i in range(1,4):
+        L=mex(d[:i]);R=mex(d[i:])
+        for k in set(L)&set(R): ms+=[x|y for x in L[k] for y in R[k]]
+    return ['+'.join(c for c in SWITCH if m&BIT[c]) for m in keep_min(ms)]
+_option_solvers={}
+def option_answers(d,opt):
+    """(tier, solutions) using only the switches in opt, preferring whole-number powers to fractional ones."""
+    codes=[c for c in opt.split('+') if c]
+    tools=frozenset(t for c in codes for t in SWITCH[c])
+    for ts in ([tools-{'fpow'}] if 'fpow' in tools else [])+[tools]:
+        if ts not in _option_solvers: _option_solvers[ts]=make(ts,memo_len=2)  # a plate's 3-digit groups aren't reused much
+        sols=matches(_option_solvers[ts],d)
+        if sols: return (3 if set(codes)&{'d','w','r'} or 'fpow' in ts else 2),sols
+    return None,[]

@@ -21,7 +21,7 @@
   const isDigits = (t) => t.type === 'num' || t.type === 'idx';
   const opCount = Core.opCount;
   function info(n) {
-    const [t, c, sol, short, need] = PUZZLES[n].split('|'); // short: a fewest-operations answer, if sol isn't one; need: see build_data.py
+    const [t, c, sol, short, need, opts] = PUZZLES[n].split('|'); // short: a fewest-operations answer, if sol isn't one; need, opts: see build_data.py
     const tier = +t, count = +c, d = String(n).padStart(4, '0');
     const open = count >= 5 || opCount(sol) === 1; // several routes, or one that takes a single operation
     let level;
@@ -29,7 +29,7 @@
     else if (tier === 2) level = open ? 'medium' : 'hard';
     else level = 'expert';
     const pool = (d.split('0').length - 1) < 2; // keep zero-heavy tickets out of random draws
-    return { n, d, tier, count, sol, short, need, level, pool };
+    return { n, d, tier, count, sol, short, need, options: Core.parseOptions(opts, sol), level, pool };
   }
   const ALL = PUZZLES.map((_, i) => info(i));
   const POOLS = {};
@@ -67,6 +67,7 @@
   levelsEl.addEventListener('change', (e) => {
     state.level = e.target.value; stats.level = state.level; save();
     newPuzzle(true);
+    renderSwitches();
   });
   const lvRules = $('lvRules');
   for (const L of LEVELS) {
@@ -75,6 +76,38 @@
     row.style.setProperty('--c', `var(--lv-${L.id})`);
     row.innerHTML = `<strong>${L.name}</strong><span>${L.rule} <span class="muted">${POOLS[L.id].length.toLocaleString()} plates · ${L.pts ? `${L.pts} pt${L.pts > 1 ? 's' : ''}` : 'points by its real level'}</span></span>`;
     lvRules.appendChild(row);
+  }
+
+  // ---- Random's tool switches: leave out plates that need a tool you've switched off (paused in Eco) ----
+  const SWITCHES = [['s', '√'], ['f', '!'], ['p', '^'], ['r', 'ⁿ√'], ['w', '!!'], ['d', '.']]; // Advanced, then Expert
+  const KEY_SWITCH = { '√': 's', '!': 'f', '^': 'p', 'ⁿ√': 'r', '!!': 'w', '.': 'd' };
+  const off = new Set(Array.isArray(stats.offTools) ? stats.offTools : []), NONE = new Set();
+  const filterOn = () => state.level === 'random' && state.mode !== 'eco' && off.size > 0;
+  const fits = (p) => p.tier === 1 || p.options.some((o) => ![...o.codes].some((c) => off.has(c)));
+  const offFor = (p) => (p && filterOn() && fits(p) ? off : NONE); // a typed-in plate that needs an off tool plays with every tool
+  const chipsEl = $('switchChips');
+  for (const [code, sym] of SWITCHES) {
+    if (code === 'r') chipsEl.append(Object.assign(document.createElement('span'), { className: 'chip-gap' }));
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = sym; b.dataset.code = code;
+    b.addEventListener('click', () => {
+      if (off.has(code)) off.delete(code); else off.add(code);
+      stats.offTools = [...off]; save();
+      const p = state.current;
+      if (p && !state.solved && !state.revealed && filterOn() && !fits(p)) newPuzzle(true); // this plate needs it: deal another
+      else renderMode();
+    });
+    chipsEl.appendChild(b);
+  }
+  function renderSwitches() {
+    const row = $('switches'), eco = state.mode === 'eco', p = state.current;
+    row.hidden = state.level !== 'random';
+    row.classList.toggle('paused', eco);
+    for (const b of chipsEl.querySelectorAll('button')) { b.setAttribute('aria-pressed', String(!off.has(b.dataset.code))); b.disabled = eco; }
+    const n = POOLS.random.filter(fits).length;
+    $('switchNote').innerHTML = eco ? 'Eco uses every tool, so these are paused.'
+      : p && filterOn() && !fits(p) && !state.solved && !state.revealed ? 'This plate needs a tool you switched off, so every tool is on for it.'
+      : `<b>${n.toLocaleString()}</b> plates.${off.size ? '' : ' Tap a tool to leave out plates that need it.'}`;
   }
 
   // ---- challenge mode switch ----
@@ -90,7 +123,7 @@
   function renderMode() {
     for (const r of document.querySelectorAll('input[name=mode]')) r.checked = r.value === state.mode;
     $('modeNote').textContent = MODES.find((M) => M.id === state.mode).note;
-    renderKeys();
+    renderKeys(); renderSwitches();
     if (!state.current) return;
     autoSymbols(); renderPlate(); renderHints(); live(); snapshot();
   }
@@ -119,7 +152,10 @@
     keysEl.appendChild(b);
   }
   // Restricted switches off every key above the level's tier (typing them is blocked too, in autoSymbols)
-  function renderKeys() { for (const b of keysEl.querySelectorAll('button')) b.disabled = +b.dataset.tier > cap(); }
+  function renderKeys() {
+    const no = restricted() ? offFor(state.current) : NONE;
+    for (const b of keysEl.querySelectorAll('button')) b.disabled = +b.dataset.tier > cap() || no.has(KEY_SWITCH[b.textContent]);
+  }
   const eq = $('eq');
   function key(k) {
     const s = eq.value, a = eq.selectionStart ?? s.length, b = eq.selectionEnd ?? s.length;
@@ -195,21 +231,32 @@
   function drawBars() { bars.innerHTML = `<span>${radHtml(eq.value)}</span>`; syncBars(); }
   eq.addEventListener('scroll', syncBars);
   document.addEventListener('selectionchange', syncBars);
-  // Restricted: take out tools above the level's tier, however they got typed or pasted. Returns [text, what was dropped].
-  function dropTools(s, top) {
-    const dropped = new Set(), SUPS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
-    if (top < 3) {
-      s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+√/g, (m) => { dropped.add('nth roots'); return [...m.slice(0, -1)].map((c) => SUPS.indexOf(c)).join(''); });
-      s = s.replace(/!!/g, () => { dropped.add('<code>!!</code>'); return '!'; });
-      s = s.replace(/\./g, () => { dropped.add('decimal points'); return ''; });
-    }
-    if (top < 2) s = s.replace(/[√!^]/g, (c) => { dropped.add(`<code>${c}</code>`); return ''; });
+  // Restricted: take out the tools in `no` (switch codes), however they got typed or pasted. Returns [text, what was dropped].
+  function dropTools(s, no) {
+    const dropped = new Set(), SUPS = '⁰¹²³⁴⁵⁶⁷⁸⁹', name = (c) => `<code>${c}</code>`;
+    if (no.has('r')) s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+√/g, (m) => { dropped.add('nth roots'); return [...m.slice(0, -1)].map((c) => SUPS.indexOf(c)).join(''); });
+    s = s.replace(/!!?/g, (m) => {
+      if (m === '!!' && !no.has('w')) return m;
+      if (m === '!!') dropped.add(name('!!'));
+      if (no.has('f')) { dropped.add(name('!')); return ''; }
+      return '!';
+    });
+    if (no.has('d')) s = s.replace(/\./g, () => { dropped.add('decimal points'); return ''; });
+    if (no.has('s')) s = s.replace(/(?<![⁰¹²³⁴⁵⁶⁷⁸⁹])√/g, () => { dropped.add(name('√')); return ''; });
+    if (no.has('p')) s = s.replace(/\^/g, () => { dropped.add(name('^')); return ''; });
     return [s, [...dropped]];
   }
-  // Turn typed stand-ins into symbols as you go: * and x → ×, / → ÷, - → −, ** → ^, sqrt → √. Returns what Restricted dropped.
+  const CAP_OFF = { 1: new Set(['s', 'f', 'p', 'r', 'w', 'd']), 2: new Set(['r', 'w', 'd']), 3: NONE }; // switches above each tier
+  // Turn typed stand-ins into symbols as you go: * and x → ×, / → ÷, - → −, ** → ^, sqrt → √.
+  // In Restricted, tools above the level and switched-off tools are dropped; returns [dropped by level, dropped by switch].
   function autoSymbols() {
-    let dropped = [];
-    const fix = (t) => { const [v, d] = dropTools(Core.normalize(t.replace(/×\*/g, '**')), cap()); dropped = d; return v; }; // the first * of ** has already become ×
+    const byLevel = CAP_OFF[cap()], bySwitch = restricted() ? offFor(state.current) : NONE;
+    let dropped = [[], []];
+    const fix = (t) => {
+      const [v1, d1] = dropTools(Core.normalize(t.replace(/×\*/g, '**')), byLevel); // the first * of ** has already become ×
+      const [v2, d2] = dropTools(v1, bySwitch);
+      dropped = [d1, d2]; return v2;
+    };
     const s = eq.value, a = eq.selectionStart ?? s.length, v = fix(s), all = dropped;
     if (v !== s) { eq.value = v; const c = fix(s.slice(0, a)).length; eq.setSelectionRange(c, c); }
     return all;
@@ -242,8 +289,11 @@
     else if (!state.solved) msg(null);
   }
   eq.addEventListener('input', () => {
-    const dropped = autoSymbols(); live();
-    if (dropped.length) msg('info', `Restricted doesn’t allow ${listify(dropped, 'or')} on ${levelOf(state.level).name}.`);
+    const [byLevel, bySwitch] = autoSymbols(); live();
+    const notes = [];
+    if (byLevel.length) notes.push(`Restricted doesn’t allow ${listify(byLevel, 'or')} on ${levelOf(state.level).name}.`);
+    if (bySwitch.length) notes.push(`You’ve switched off ${listify(bySwitch, 'and')}.`);
+    if (notes.length) msg('info', notes.join(' '));
   });
 
   // ---- hints ----
@@ -272,12 +322,17 @@
   }
   // The answer the hints walk you to: in Eco a fewest-operations one, otherwise the most basic one,
   // which never uses a tier above the plate's (so it's always allowed in Restricted).
-  const hintAnswer = (p) => (state.mode === 'eco' ? p.short || p.sol : p.sol);
+  // With tool switches off, it's the most basic answer that avoids them.
+  const hintAnswer = (p) => (state.mode === 'eco' ? p.short || p.sol : Core.answerFor(p.sol, p.options, offFor(p)) || p.sol);
   function hintText(i) {
     const p = state.current, sol = hintAnswer(p), eco = state.mode === 'eco';
     if (i === 0 && eco) {
       const tools = ['', 'only + − × ÷', 'an Advanced tool (<code>√</code> <code>!</code> <code>^</code>)', 'an Expert tool (a decimal point, <code>!!</code>, an nth root or a fractional power)'][Core.toolTier(sol)];
       return `<b>Toolbox</b>My shortest answer uses ${tools}.`;
+    }
+    if (i === 0 && offFor(p).size) { // with switches off: the tool sets still open to you (all of them, so no Expert note)
+      const open = p.options.filter((o) => ![...o.codes].some((c) => offFor(p).has(c)));
+      return `<b>Toolbox</b>${p.tier === 1 ? 'You won’t need any advanced tools' : `You’ll need ${needsText(open.map((o) => [...o.codes].join('+')).join(','))}`}.`;
     }
     if (i === 0) {
       const any = p.need && p.need.split(',').sort().join(',') === { 2: 'f,p,s', 3: 'd,q,r,w' }[p.tier]; // each of the tier's tools works alone
@@ -316,8 +371,10 @@
   // mine: the player's own answer after a solve; a stored answer that matches it gets marked, not hidden
   function answersHtml(p, mine, beaten) {
     const norm = (s) => Core.normalize(s).replace(/\s/g, '');
-    const rows = beaten ? [['My answer', p.sol]]
-      : p.short ? [['Most basic', p.sol], ['Fewest operations', p.short]] : [['Most basic and fewest operations', p.sol]];
+    const no = offFor(p), basic = Core.answerFor(p.sol, p.options, no) || p.sol; // with switches off, answers that avoid them
+    const short = p.short && ![...Core.toolCodes(p.short)].some((c) => no.has(c)) && opCount(p.short) < opCount(basic) ? p.short : '';
+    const rows = beaten ? [['My answer', basic]]
+      : short ? [['Most basic', basic], ['Fewest operations', short]] : [['Most basic and fewest operations', basic]];
     const html = rows.map(([label, s]) => {
       const same = mine && norm(s) === norm(mine) ? ' · same as yours' : '';
       return `<div><span class="lbl">${label} · ${opsText(opCount(s))}${same}</span><code>${radHtml(s, true)}</code></div>`;
@@ -339,9 +396,11 @@
     if (!eq.value.trim()) { msg('bad', 'Type an equation using the four digits first.'); return; }
     if (!r.ok) { msg('bad', r.kind === 'unequal' && state.mode !== 'normal' ? 'Not balanced.' : esc(r.error)); return; } // challenge modes don't give the totals away
     if (restricted()) { // a correct answer still has to stay within the level's tools, then within this plate's tier
-      const used = Core.toolTier(eq.value), lv = levelOf(state.level).name;
+      const used = Core.toolTier(eq.value), lv = levelOf(state.level).name, need = Core.toolTier(hintAnswer(p)); // the plate's tier with your tools
       if (used > cap()) { msg('bad', `That uses ${TIERS[used]} tools${used === 3 ? ' (fractional powers like 8^(1 ÷ 3) count as Expert)' : ''}, which Restricted doesn’t allow on ${lv}.`); return; }
-      if (used > p.tier) { msg('info', `That works, but this plate can be done ${p.tier === 1 ? 'with + − × ÷ only' : 'without Expert tools'}. Try again for points.`); return; }
+      const banned = [...Core.toolCodes(eq.value)].filter((c) => offFor(p).has(c));
+      if (banned.length) { msg('bad', `That uses ${listify(banned.map((c) => `<code>${SWITCHES.find((w) => w[0] === c)[1]}</code>`))}, which you’ve switched off.`); return; }
+      if (used > need) { msg('info', `That works, but this plate can be done ${need === 1 ? 'with + − × ÷ only' : 'without Expert tools'}. Try again for points.`); return; }
     }
     if (state.mode === 'eco') { // a correct answer still has to reach the goal
       const n = opCount(eq.value), goal = opCount(p.short || p.sol);
@@ -381,14 +440,14 @@
   function load(p, keepInput) {
     newState();
     state.current = p; state.hintsUsed = 0; state.solved = false; state.revealed = false; state.shown = false; state.goalShown = false;
-    renderKeys(); // Restricted's keys follow the level
+    renderKeys(); renderSwitches(); // Restricted's keys follow the level and the switches
     if (!keepInput) eq.value = '';
     msg(null); $('preview').innerHTML = '';
     renderDigits(0, -1); renderPlate(); renderHints(); live(); snapshot();
   }
   function newPuzzle(fromLevelChange) {
     if (!fromLevelChange && state.current && !state.solved && !state.revealed && stats.streak) { stats.streak = 0; save(); renderStats(); }
-    const pool = POOLS[state.level];
+    const pool = filterOn() ? POOLS.random.filter(fits) : POOLS[state.level]; // tier-1 plates always fit, so it's never empty
     let p, tries = 0;
     do { p = pool[Math.floor(Math.random() * pool.length)]; } while (state.recent.includes(p.n) && tries++ < 50);
     state.recent = [p.n, ...state.recent].slice(0, 40);

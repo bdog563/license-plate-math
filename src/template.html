@@ -186,6 +186,16 @@ table.ops.states td:first-child { font-family: var(--font-body); font-size: 0.95
 .modes label:has(input:checked) { background: var(--ink); color: var(--surface); }
 .modes label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
 .mode-note { font-size: 0.85rem; color: var(--muted); }
+/* Random's tool switches: a filled chip is on, a dashed outline is off */
+.switches { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-top: -8px; padding: 8px 12px; border: 1px dashed var(--rule); border-radius: 12px; }
+.switch-label { font-size: 0.85rem; color: var(--muted); }
+.switch-chips { display: flex; align-items: center; gap: 6px; }
+.chip { font-family: var(--font-mono); font-weight: 600; font-size: 0.95rem; min-width: 2.4em; padding: 3px 8px; border-radius: 999px; border: 1.5px solid var(--ink); background: var(--ink); color: var(--surface); }
+.chip[aria-pressed="false"] { background: transparent; color: var(--muted); border-style: dashed; border-color: var(--muted); }
+.chip-gap { width: 6px; }
+.switches.paused .chip { opacity: 0.4; cursor: not-allowed; }
+.switch-note { font-size: 0.85rem; color: var(--muted); }
+.switch-note b { color: var(--ink); }
 @media (max-width: 480px) { .keys { gap: 4px; } .keys button { font-size: 1rem; } }
 .preview { display: flex; gap: 8px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 0.9rem; color: var(--muted); }
 .preview span { background: var(--key); border-radius: 6px; padding: 3px 8px; }
@@ -273,6 +283,11 @@ ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 6
       <span class="challenge-label" id="modeLabel">Challenge</span>
       <div class="modes" id="modes" role="radiogroup" aria-labelledby="modeLabel"></div>
       <span class="mode-note" id="modeNote"></span>
+    </div>
+    <div class="switches" id="switches" hidden>
+      <span class="switch-label">Tools I'll use</span>
+      <div class="switch-chips" id="switchChips" role="group" aria-label="Tools I'll use"></div>
+      <span class="switch-note" id="switchNote" aria-live="polite"></span>
     </div>
 
     <section class="plate" data-sky="day" aria-label="License plate">
@@ -405,6 +420,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 6
       <h3>Difficulty levels</h3>
       <p class="muted">Levels come from solving all 10,000 plates by computer and noting the simplest tools each one needs.</p>
       <div class="lv-list" id="lvRules"></div>
+      <p>With Random picked, the <b>Tools I'll use</b> switches leave out plates that need a tool you've switched off. Hints and Show answer then stick to the tools you've left on, and in Restricted the switched-off keys are grayed out too. Fractional powers count as <code>^</code>. Eco ignores the switches, since its shortest answers can use any tool.</p>
     </section>
 
     <section>
