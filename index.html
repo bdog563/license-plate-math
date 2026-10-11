@@ -127,6 +127,9 @@ nav.tabs button[aria-selected="true"] { background: var(--ink); color: var(--sur
 .sticker-reveal { grid-column: 3; justify-self: end; display: grid; line-height: 1.05; padding: 3px 7px; border-radius: 4px; background: none; color: var(--plate-ink);
   border: 1.5px dashed currentColor; font-family: var(--font-plate); font-weight: 700; font-size: clamp(0.6rem, 1.9vw, 0.78rem); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
 .sticker-reveal:hover { opacity: 1; }
+/* Eco's goal sticker sits in the other top corner, where a month sticker would go */
+.sticker.goal, .goal-reveal { grid-column: 1; grid-row: 1; justify-self: start; }
+.sticker.goal { background: var(--plate-ink); color: var(--plate); }
 .digits { position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; gap: clamp(2px, 1.2vw, 10px); }
 .digit { font-family: var(--font-plate); font-weight: 600; font-size: clamp(3.4rem, 19vw, 7.6rem); line-height: 1; width: 0.72em; text-align: center; padding-block: 0.04em 0; border-radius: 10px; position: relative;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85), 0 -1px 0 rgba(0, 0, 0, 0.18), 0 3px 3px rgba(20, 30, 60, 0.22); transition: color .15s, background .15s; } /* embossed */
@@ -169,10 +172,25 @@ table.ops.states td:first-child { font-family: var(--font-body); font-size: 0.95
 .keys button { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 600; padding: 9px 0; border-radius: 8px; border: 1px solid var(--rule); background: var(--key); }
 .keys button:hover { background: var(--key-hover); }
 .keys button.wide { font-family: var(--font-body); font-size: 0.85rem; grid-column: span 2; }
+.keys button:disabled { opacity: 0.28; cursor: not-allowed; }
+.keys button:disabled:hover { background: var(--key); }
+.tier-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding-top: 5px; margin-top: 2px;
+  background: repeating-linear-gradient(90deg, var(--c1) 0 9px, var(--c2) 9px 18px) top / 100% 3px no-repeat; } /* dashes alternate the colors of the levels that use the tier */
+.tier-label.blank { background: none; }
+/* challenge mode switch */
+.challenge { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-top: -6px; }
+.challenge-label { font-size: 0.85rem; color: var(--muted); }
+.modes { display: flex; gap: 4px; background: var(--key); padding: 4px; border-radius: 999px; border: 1px solid var(--rule); }
+.modes label { position: relative; padding: 5px 14px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; color: var(--muted); cursor: pointer; }
+.modes input { position: absolute; opacity: 0; pointer-events: none; }
+.modes label:has(input:checked) { background: var(--ink); color: var(--surface); }
+.modes label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+.mode-note { font-size: 0.85rem; color: var(--muted); }
 @media (max-width: 480px) { .keys { gap: 4px; } .keys button { font-size: 1rem; } }
 .preview { display: flex; gap: 8px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 0.9rem; color: var(--muted); }
 .preview span { background: var(--key); border-radius: 6px; padding: 3px 8px; }
 .preview b { color: var(--ink); font-weight: 600; }
+.preview .at-goal, .preview .at-goal b { color: var(--good); }
 .msg { border-radius: 10px; padding: 10px 14px; font-size: 0.95rem; }
 .msg.good { background: var(--good-soft); color: var(--good); font-weight: 700; }
 .msg.bad { background: var(--bad-soft); color: var(--bad); }
@@ -251,6 +269,11 @@ ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 6
     <fieldset class="levels" id="levels" style="border:0;padding:0;margin:0;min-width:0">
       <legend class="muted" style="font-size:.85rem;margin-bottom:8px;padding:0">Difficulty</legend>
     </fieldset>
+    <div class="challenge">
+      <span class="challenge-label" id="modeLabel">Challenge</span>
+      <div class="modes" id="modes" role="radiogroup" aria-labelledby="modeLabel"></div>
+      <span class="mode-note" id="modeNote"></span>
+    </div>
 
     <section class="plate" data-sky="day" aria-label="License plate">
       <svg class="plate-sky" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true">
@@ -282,7 +305,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 6
         <g class="axes" stroke="#1b2a55" stroke-opacity="0.5" stroke-width="1"><path d="M12 120 H286" marker-end="url(#arAxis)"/><path d="M18 120 V34" marker-end="url(#arAxis)"/></g>
         <g class="axes" stroke="#1b2a55" stroke-opacity="0.45" stroke-width="0.9"><path d="M48 118v4M78 118v4M108 118v4M138 118v4M168 118v4M198 118v4M228 118v4M258 118v4"/></g>
       </svg>
-      <div class="plate-top"><span class="plate-state" id="plateState">Minusota</span><span class="sticker" id="lvstamp">Easy</span><button type="button" class="sticker-reveal" id="lvReveal" aria-label="Show difficulty" hidden><span>Show</span><span>level</span></button></div>
+      <div class="plate-top"><span class="sticker goal" id="goalSticker" hidden></span><button type="button" class="sticker-reveal goal-reveal" id="goalReveal" aria-label="Show the goal" hidden><span>Show</span><span>goal</span></button><span class="plate-state" id="plateState">Minusota</span><span class="sticker" id="lvstamp">Easy</span><button type="button" class="sticker-reveal" id="lvReveal" aria-label="Show difficulty" hidden><span>Show</span><span>level</span></button></div>
       <div class="digits" id="digits" aria-label="Digits"></div>
       <div class="plate-foot"><span class="plate-motto" id="plateSlogan">Land of 10,000 Plates</span></div>
       <div class="solved-stamp" id="solvedStamp" hidden>Solved</div>
@@ -385,10 +408,22 @@ ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 6
     </section>
 
     <section>
+      <h3>Challenge modes</h3>
+      <p>Pick a mode with the Challenge switch under the difficulty buttons. Points and streaks are shared across modes.</p>
+      <ul class="plain">
+        <li><b>Normal</b>: any correct equation scores, and the Left and Right totals update as you type.</li>
+        <li><b>Restricted</b>: use only the tools the plate needs. Keys the level never needs are switched off, and typing them doesn't work either: on Easy only + − × ÷ work, and on Medium and Hard the Expert tools are off. If your answer uses a tier the plate doesn't need, like √ on a plate that works with + − × ÷, you're asked to try again for the points. Hints point to an answer within the plate's tools.</li>
+        <li><b>Eco</b>: find an answer with the fewest operations. A counter shows how many you've used, and the <b>Show goal</b> sticker in the plate's top-left corner reveals the target. An answer that works but uses more operations than the goal doesn't score yet. Hints point to a shortest answer, and every key stays on, since the shortest answer can use any tool.</li>
+        <li>In Restricted and Eco the running totals are hidden, and a wrong answer just says "Not balanced".</li>
+      </ul>
+      <p>The tools come in three tiers, and the keypad groups its keys the same way: <b>Basic</b> (+ − × ÷, minus signs, brackets, joined digits), <b>Advanced</b> (√ ! ^) and <b>Expert</b> (a decimal point, !!, nth roots, and fractional powers like <code>8^(1 ÷ 3)</code>).</p>
+    </section>
+
+    <section>
       <h3>Scoring</h3>
       <ul class="plain">
         <li>Solving earns 1 point on Easy, 2 on Medium, 4 on Hard and 6 on Expert. A Random plate, or one you type in yourself, earns the points for its real level.</li>
-        <li>There are four hints, each more specific than the last: which advanced tools you can't do without, where the <code>=</code> goes, exactly which operations it uses, and what both sides equal. Each costs 1 point from that puzzle, but a solve is always worth at least 1.</li>
+        <li>There are four hints, each more specific than the last: which advanced tools you can't do without, where the <code>=</code> goes, exactly which operations it uses, and what both sides equal. In Eco they point to a shortest answer instead. Each costs 1 point from that puzzle, but a solve is always worth at least 1.</li>
         <li>Showing the answer or skipping to a new puzzle ends your streak.</li>
         <li>Any correct equation counts, not just the one the game has on file.</li>
         <li>After you solve or show the answer, you'll see the most basic answer and, when a different one is shorter, the one with the fewest operations. Every symbol counts as an operation except brackets and the <code>=</code> sign.</li>
@@ -720,7 +755,31 @@ const Core = (() => {
     for (const r of out) for (const q of out) if (q !== r && q.from >= r.from && q.to <= r.to) r.h = Math.max(r.h, q.h + 1);
     return out;
   }
-  return { check, fmt, tokenize, parse, evaluate, normalize, radicands };
+  // ---- how an answer is scored ----
+  // Every symbol counts as an operation except brackets and =; a decimal point counts, joining digits and a root's index don't.
+  function opCount(src) {
+    return tokenize(src).filter((t) => (t.type === 'num' || t.type === 'idx' ? t.text.includes('.') : !'()='.includes(t.type))).length;
+  }
+  // The tier of tools an answer uses, matching the solver: 1 basic (+ − × ÷, minus signs, brackets, joined digits),
+  // 2 advanced (√ ! and whole-number ^), 3 expert (a decimal point, !!, nth roots and fractional powers like 8^(1/3)).
+  function toolTier(src) {
+    let tier = 1;
+    const walk = (n) => {
+      if (n.k === 'num') { if (n.t.text.includes('.')) tier = 3; return; }
+      if (n.k === 'dfact' || n.k === 'root') tier = 3;
+      else if (n.k === 'sqrt' || n.k === 'fact') tier = Math.max(tier, 2);
+      else if (n.k === 'pow') {
+        let whole = true;
+        try { whole = nearInt(evaluate(n.b)) !== null; } catch (e) {}
+        tier = Math.max(tier, whole ? 2 : 3);
+      }
+      if (n.a) walk(n.a);
+      if (n.b) walk(n.b);
+    };
+    for (const side of normalize(src).split('=')) walk(parse(tokenize(side)));
+    return tier;
+  }
+  return { check, fmt, tokenize, parse, evaluate, normalize, radicands, opCount, toolTier };
 })();
 if (typeof module !== 'undefined') module.exports = Core;
 
@@ -733,12 +792,19 @@ if (typeof module !== 'undefined') module.exports = Core;
     { id: 'expert', name: 'Expert', pts: 6, rule: 'Impossible without a decimal point, a double factorial or an nth root like ³√8 or 8^(1 ÷ 3). The rarest plates.' },
     { id: 'random', name: 'Random', rule: 'Any plate from 0000 to 9999 except those with two or more zeros, all equally likely. The difficulty stays hidden until you reveal it, take a hint or finish.' },
   ];
+  // Challenge modes. Restricted: only the tools the plate needs. Eco: the fewest operations. Both hide the running totals.
+  const MODES = [
+    { id: 'normal', name: 'Normal', note: 'Any correct equation scores.' },
+    { id: 'restricted', name: 'Restricted', note: 'Use only the tools this plate needs. Totals are hidden.' },
+    { id: 'eco', name: 'Eco', note: 'Find the fewest operations. Totals are hidden.' },
+  ];
+  const TIERS = ['', 'Basic', 'Advanced', 'Expert'];
+  const CEILING = { easy: 1, medium: 2, hard: 2, expert: 3, random: 3 }; // the highest tool tier any plate at this level needs
   const $ = (id) => document.getElementById(id);
 
   // ---- puzzle catalogue ----
-  // Every symbol counts as an operation except brackets and =; a decimal point counts, joining digits and a root's index don't.
   const isDigits = (t) => t.type === 'num' || t.type === 'idx';
-  const opCount = (s) => Core.tokenize(s).filter((t) => (isDigits(t) ? t.text.includes('.') : !'()='.includes(t.type))).length;
+  const opCount = Core.opCount;
   function info(n) {
     const [t, c, sol, short, need] = PUZZLES[n].split('|'); // short: a fewest-operations answer, if sol isn't one; need: see build_data.py
     const tier = +t, count = +c, d = String(n).padStart(4, '0');
@@ -756,7 +822,7 @@ if (typeof module !== 'undefined') module.exports = Core;
 
   // ---- persisted stats (per viewer, optional) ----
   const KEY = 'license-plate-math-v1';
-  let stats = { score: 0, solved: 0, streak: 0, best: 0, level: 'easy' };
+  let stats = { score: 0, solved: 0, streak: 0, best: 0, level: 'easy', mode: 'normal' };
   try { const s = JSON.parse(localStorage.getItem(KEY) || localStorage.getItem('four-in-order-v1') || 'null'); if (s) stats = Object.assign(stats, s); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(stats)); } catch (e) {} };
 
@@ -770,6 +836,8 @@ if (typeof module !== 'undefined') module.exports = Core;
     solved: false,
     revealed: false,
     shown: false, // difficulty shown on a Random ticket
+    mode: MODES.some((M) => M.id === stats.mode) ? stats.mode : 'normal',
+    goalShown: false, // Eco's goal sticker turned over
     recent: [],
   };
 
@@ -794,18 +862,49 @@ if (typeof module !== 'undefined') module.exports = Core;
     lvRules.appendChild(row);
   }
 
+  // ---- challenge mode switch ----
+  const modesEl = $('modes');
+  for (const M of MODES) {
+    const lab = document.createElement('label');
+    lab.innerHTML = `<input type="radio" name="mode" value="${M.id}"><span>${M.name}</span>`;
+    modesEl.appendChild(lab);
+  }
+  modesEl.addEventListener('change', (e) => { state.mode = e.target.value; stats.mode = state.mode; save(); renderMode(); });
+  const restricted = () => state.mode === 'restricted';
+  const cap = () => (restricted() ? CEILING[state.level] : 3);
+  function renderMode() {
+    for (const r of document.querySelectorAll('input[name=mode]')) r.checked = r.value === state.mode;
+    $('modeNote').textContent = MODES.find((M) => M.id === state.mode).note;
+    renderKeys();
+    if (!state.current) return;
+    autoSymbols(); renderPlate(); renderHints(); live(); snapshot();
+  }
+
   // ---- keypad ----
-  const KEYS = ['+', '−', '×', '÷', '(', ')', '=', '⌫', '^', '√', 'ⁿ√', '!', '!!', '.', 'Clear']; // basic keys on top, the harder tools below
+  // [key, tool tier]: Basic keys on top; the bottom row is Advanced (^ √ !) then Expert (ⁿ√ !! .), each under a tier label
+  const KEYS = [['+', 1], ['−', 1], ['×', 1], ['÷', 1], ['(', 1], [')', 1], ['=', 1], ['⌫', 1], ['^', 2], ['√', 2], ['!', 2], ['ⁿ√', 3], ['!!', 3], ['.', 3], ['Clear', 1]];
   const keysEl = $('keys');
-  for (const k of KEYS) {
+  function tierLabel(tier, span) {
+    const l = document.createElement('span');
+    l.className = 'tier-label'; l.textContent = tier ? TIERS[tier] : ''; l.style.gridColumn = `span ${span}`;
+    // the bar alternates the colors of the levels that use this tier: Basic easy/medium, Advanced medium/hard, Expert expert
+    const [c1, c2] = [[], ['easy', 'medium'], ['medium', 'hard'], ['expert', 'expert']][tier] || [];
+    if (tier) { l.style.setProperty('--c1', `var(--lv-${c1})`); l.style.setProperty('--c2', `var(--lv-${c2})`); } else l.classList.add('blank');
+    return l;
+  }
+  keysEl.append(tierLabel(1, 8));
+  for (const [k, tier] of KEYS) {
+    if (k === '^') keysEl.append(tierLabel(2, 3), tierLabel(3, 3), tierLabel(0, 2));
     const b = document.createElement('button');
-    b.type = 'button'; b.textContent = k;
+    b.type = 'button'; b.textContent = k; b.dataset.tier = tier;
     if (k === 'Clear') { b.className = 'wide'; b.setAttribute('aria-label', 'Clear equation'); }
     if (k === '⌫') b.setAttribute('aria-label', 'Delete');
     if (k === 'ⁿ√') b.setAttribute('aria-label', 'nth root: the digits before it become the index');
     b.addEventListener('click', () => key(k));
     keysEl.appendChild(b);
   }
+  // Restricted switches off every key above the level's tier (typing them is blocked too, in autoSymbols)
+  function renderKeys() { for (const b of keysEl.querySelectorAll('button')) b.disabled = +b.dataset.tier > cap(); }
   const eq = $('eq');
   function key(k) {
     const s = eq.value, a = eq.selectionStart ?? s.length, b = eq.selectionEnd ?? s.length;
@@ -836,6 +935,10 @@ if (typeof module !== 'undefined') module.exports = Core;
     st.innerHTML = `<span>${L.name}</span>${done ? '' : `<small>${pts} pt${pts > 1 ? 's' : ''}</small>`}`;
     st.style.setProperty('--c', `var(--lv-${L.id})`);
     st.hidden = hide; $('lvReveal').hidden = !hide;
+    // Eco's goal sticker, in the month corner: the fewest operations, turned over on request
+    const eco = state.mode === 'eco', goal = opCount(p.short || p.sol), showGoal = eco && (state.goalShown || done);
+    $('goalSticker').innerHTML = `<span>Goal</span><small>${goal} op${goal === 1 ? '' : 's'}</small>`;
+    $('goalSticker').hidden = !showGoal; $('goalReveal').hidden = !eco || showGoal;
     $('solvedStamp').hidden = !state.solved;
     for (const r of document.querySelectorAll('input[name=level]')) r.checked = r.value === state.level;
   }
@@ -877,11 +980,24 @@ if (typeof module !== 'undefined') module.exports = Core;
   function drawBars() { bars.innerHTML = `<span>${radHtml(eq.value)}</span>`; syncBars(); }
   eq.addEventListener('scroll', syncBars);
   document.addEventListener('selectionchange', syncBars);
-  // Turn typed stand-ins into symbols as you go: * and x → ×, / → ÷, - → −, ** → ^, sqrt → √.
+  // Restricted: take out tools above the level's tier, however they got typed or pasted. Returns [text, what was dropped].
+  function dropTools(s, top) {
+    const dropped = new Set(), SUPS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+    if (top < 3) {
+      s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+√/g, (m) => { dropped.add('nth roots'); return [...m.slice(0, -1)].map((c) => SUPS.indexOf(c)).join(''); });
+      s = s.replace(/!!/g, () => { dropped.add('<code>!!</code>'); return '!'; });
+      s = s.replace(/\./g, () => { dropped.add('decimal points'); return ''; });
+    }
+    if (top < 2) s = s.replace(/[√!^]/g, (c) => { dropped.add(`<code>${c}</code>`); return ''; });
+    return [s, [...dropped]];
+  }
+  // Turn typed stand-ins into symbols as you go: * and x → ×, / → ÷, - → −, ** → ^, sqrt → √. Returns what Restricted dropped.
   function autoSymbols() {
-    const fix = (t) => Core.normalize(t.replace(/×\*/g, '**')); // the first * of ** has already become ×
-    const s = eq.value, a = eq.selectionStart ?? s.length, v = fix(s);
+    let dropped = [];
+    const fix = (t) => { const [v, d] = dropTools(Core.normalize(t.replace(/×\*/g, '**')), cap()); dropped = d; return v; }; // the first * of ** has already become ×
+    const s = eq.value, a = eq.selectionStart ?? s.length, v = fix(s), all = dropped;
     if (v !== s) { eq.value = v; const c = fix(s.slice(0, a)).length; eq.setSelectionRange(c, c); }
+    return all;
   }
 
   // live feedback while typing
@@ -892,9 +1008,14 @@ if (typeof module !== 'undefined') module.exports = Core;
     const used = r.digitsUsed.length, ok = p.d.startsWith(r.digitsUsed.join(''));
     renderDigits(ok ? used : 0, ok ? -1 : Math.min(used - 1, 3));
     const pv = $('preview'); pv.innerHTML = '';
+    if (state.mode === 'eco') { // counts as you type, so it works on half-finished equations too
+      const n = (Core.normalize(eq.value).match(/!!|[+−×÷^√!.]/g) || []).length, goal = opCount(p.short || p.sol);
+      const shown = state.goalShown || state.solved || state.revealed;
+      pv.innerHTML = `<span class="${shown && n && n <= goal ? 'at-goal' : ''}">Operations <b>${n}</b>${shown ? ` · goal <b>${goal}</b>` : ''}</span>`;
+    }
     if (!eq.value.trim()) return;
     const names = ['Left', 'Right'];
-    r.sides.forEach((v, i) => {
+    if (state.mode === 'normal') r.sides.forEach((v, i) => {
       if (!v) return;
       const span = document.createElement('span');
       span.innerHTML = v.err ? `${names[i]}: <span style="background:none;padding:0">…</span>` : `${names[i]} = <b>${esc(Core.fmt(v))}</b>`;
@@ -905,7 +1026,10 @@ if (typeof module !== 'undefined') module.exports = Core;
     else if (r.kind === 'digits') msg('bad', esc(r.error));
     else if (!state.solved) msg(null);
   }
-  eq.addEventListener('input', () => { autoSymbols(); live(); });
+  eq.addEventListener('input', () => {
+    const dropped = autoSymbols(); live();
+    if (dropped.length) msg('info', `Restricted doesn’t allow ${listify(dropped, 'or')} on ${levelOf(state.level).name}.`);
+  });
 
   // ---- hints ----
   const HINTS = 4; // each one more specific than the last
@@ -931,15 +1055,22 @@ if (typeof module !== 'undefined') module.exports = Core;
     const opts = need.split(',').map((o) => o.split('+').map((c) => TOOL[c])).map((t) => (t.length === 2 ? 'both ' : '') + listify(t));
     return need.includes('+') && opts.length > 1 ? opts.slice(0, -1).join(', ') + ', or ' + opts[opts.length - 1] : listify(opts, 'or');
   }
+  // The answer the hints walk you to: in Eco a fewest-operations one, otherwise the most basic one,
+  // which never uses a tier above the plate's (so it's always allowed in Restricted).
+  const hintAnswer = (p) => (state.mode === 'eco' ? p.short || p.sol : p.sol);
   function hintText(i) {
-    const p = state.current, sol = p.sol;
+    const p = state.current, sol = hintAnswer(p), eco = state.mode === 'eco';
+    if (i === 0 && eco) {
+      const tools = ['', 'only + − × ÷', 'an Advanced tool (<code>√</code> <code>!</code> <code>^</code>)', 'an Expert tool (a decimal point, <code>!!</code>, an nth root or a fractional power)'][Core.toolTier(sol)];
+      return `<b>Toolbox</b>My shortest answer uses ${tools}.`;
+    }
     if (i === 0) {
       const any = p.need && p.need.split(',').sort().join(',') === { 2: 'f,p,s', 3: 'd,q,r,w' }[p.tier]; // each of the tier's tools works alone
       const tools = p.tier === 1 ? 'You won’t need any advanced tools' : any ? `You can use any ${p.tier === 3 ? 'Expert' : 'advanced'} tool (${needsText(p.need)})` : `You’ll need ${needsText(p.need)}`;
       const note = p.tier === 3 ? ' (Note: some advanced tools, <code>√</code> <code>!</code> <code>^</code>, may still be necessary.)' : '';
       return `<b>Toolbox</b>${tools}.${note}`;
     }
-    if (i === 2) return `<b>Tools</b>My answer uses ${listify(opsUsed(sol))}.`;
+    if (i === 2) return `<b>Tools</b>My ${eco ? 'shortest ' : ''}answer uses ${listify(opsUsed(sol))}.`;
     if (i === 1) {
       const left = sol.split('=')[0], k = Core.tokenize(left).filter(isDigits).reduce((n, t) => n + t.digits.length, 0);
       const d = p.d.split('');
@@ -991,13 +1122,22 @@ if (typeof module !== 'undefined') module.exports = Core;
     if (state.solved || state.revealed) return;
     const p = state.current, r = Core.check(eq.value, p.d);
     if (!eq.value.trim()) { msg('bad', 'Type an equation using the four digits first.'); return; }
-    if (!r.ok) { msg('bad', esc(r.error)); return; }
+    if (!r.ok) { msg('bad', r.kind === 'unequal' && state.mode !== 'normal' ? 'Not balanced.' : esc(r.error)); return; } // challenge modes don't give the totals away
+    if (restricted()) { // a correct answer still has to stay within the level's tools, then within this plate's tier
+      const used = Core.toolTier(eq.value), lv = levelOf(state.level).name;
+      if (used > cap()) { msg('bad', `That uses ${TIERS[used]} tools${used === 3 ? ' (fractional powers like 8^(1 ÷ 3) count as Expert)' : ''}, which Restricted doesn’t allow on ${lv}.`); return; }
+      if (used > p.tier) { msg('info', `That works, but this plate can be done ${p.tier === 1 ? 'with + − × ÷ only' : 'without Expert tools'}. Try again for points.`); return; }
+    }
+    if (state.mode === 'eco') { // a correct answer still has to reach the goal
+      const n = opCount(eq.value), goal = opCount(p.short || p.sol);
+      if (n > goal) { msg('info', state.goalShown ? `That works with ${opsText(n)}. The goal is ${goal}. Trim it down for points.` : `That works with ${opsText(n)}, but it can be done in fewer. Try again for points.`); return; }
+    }
     const L = levelOf(p.level), pts = Math.max(1, L.pts - state.hintsUsed);
     state.solved = true;
     stats.score += pts; stats.solved += 1; stats.streak += 1; stats.best = Math.max(stats.best, stats.streak); save();
     const same = r.sides[0] && Core.fmt(r.sides[0]);
     const mine = opCount(eq.value), fewest = opCount(p.short || p.sol), beaten = mine < fewest;
-    const note = beaten ? ' That’s fewer than any answer I found!' : mine === fewest ? ' That’s the fewest operations I found!' : '';
+    const note = beaten ? ' That’s fewer than any answer I found!' : mine === fewest ? (state.mode === 'eco' ? ' That’s the goal!' : ' That’s the fewest operations I found!') : '';
     msg('good', `Balanced at ${esc(same)} with ${opsText(mine)}.${note} +${pts} point${pts > 1 ? 's' : ''}.` + answersHtml(p, eq.value, beaten));
     renderDigits(4, -1); renderHints(); renderPlate(); renderStats(); snapshot();
   });
@@ -1025,7 +1165,8 @@ if (typeof module !== 'undefined') module.exports = Core;
   // ---- puzzles ----
   function load(p, keepInput) {
     newState();
-    state.current = p; state.hintsUsed = 0; state.solved = false; state.revealed = false; state.shown = false;
+    state.current = p; state.hintsUsed = 0; state.solved = false; state.revealed = false; state.shown = false; state.goalShown = false;
+    renderKeys(); // Restricted's keys follow the level
     if (!keepInput) eq.value = '';
     msg(null); $('preview').innerHTML = '';
     renderDigits(0, -1); renderPlate(); renderHints(); live(); snapshot();
@@ -1048,6 +1189,7 @@ if (typeof module !== 'undefined') module.exports = Core;
     $('custom').value = '';
   });
   $('lvReveal').addEventListener('click', () => { state.shown = true; renderPlate(); snapshot(); });
+  $('goalReveal').addEventListener('click', () => { state.goalShown = true; renderPlate(); live(); snapshot(); });
 
   // ---- tabs (with #rules deep link) ----
   function show(tab) {
@@ -1067,7 +1209,7 @@ if (typeof module !== 'undefined') module.exports = Core;
 
   // ---- start: open on a real puzzle ----
   function start(data) {
-    renderStats();
+    renderStats(); renderMode();
     if (data && typeof data.n === 'number') {
       state.level = data.level || state.level;
       load(ALL[data.n], true);

@@ -127,6 +127,9 @@ nav.tabs button[aria-selected="true"] { background: var(--ink); color: var(--sur
 .sticker-reveal { grid-column: 3; justify-self: end; display: grid; line-height: 1.05; padding: 3px 7px; border-radius: 4px; background: none; color: var(--plate-ink);
   border: 1.5px dashed currentColor; font-family: var(--font-plate); font-weight: 700; font-size: clamp(0.6rem, 1.9vw, 0.78rem); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
 .sticker-reveal:hover { opacity: 1; }
+/* Eco's goal sticker sits in the other top corner, where a month sticker would go */
+.sticker.goal, .goal-reveal { grid-column: 1; grid-row: 1; justify-self: start; }
+.sticker.goal { background: var(--plate-ink); color: var(--plate); }
 .digits { position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; gap: clamp(2px, 1.2vw, 10px); }
 .digit { font-family: var(--font-plate); font-weight: 600; font-size: clamp(3.4rem, 19vw, 7.6rem); line-height: 1; width: 0.72em; text-align: center; padding-block: 0.04em 0; border-radius: 10px; position: relative;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85), 0 -1px 0 rgba(0, 0, 0, 0.18), 0 3px 3px rgba(20, 30, 60, 0.22); transition: color .15s, background .15s; } /* embossed */
@@ -169,10 +172,25 @@ table.ops.states td:first-child { font-family: var(--font-body); font-size: 0.95
 .keys button { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 600; padding: 9px 0; border-radius: 8px; border: 1px solid var(--rule); background: var(--key); }
 .keys button:hover { background: var(--key-hover); }
 .keys button.wide { font-family: var(--font-body); font-size: 0.85rem; grid-column: span 2; }
+.keys button:disabled { opacity: 0.28; cursor: not-allowed; }
+.keys button:disabled:hover { background: var(--key); }
+.tier-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding-top: 5px; margin-top: 2px;
+  background: repeating-linear-gradient(90deg, var(--c1) 0 9px, var(--c2) 9px 18px) top / 100% 3px no-repeat; } /* dashes alternate the colors of the levels that use the tier */
+.tier-label.blank { background: none; }
+/* challenge mode switch */
+.challenge { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-top: -6px; }
+.challenge-label { font-size: 0.85rem; color: var(--muted); }
+.modes { display: flex; gap: 4px; background: var(--key); padding: 4px; border-radius: 999px; border: 1px solid var(--rule); }
+.modes label { position: relative; padding: 5px 14px; border-radius: 999px; font-weight: 700; font-size: 0.9rem; color: var(--muted); cursor: pointer; }
+.modes input { position: absolute; opacity: 0; pointer-events: none; }
+.modes label:has(input:checked) { background: var(--ink); color: var(--surface); }
+.modes label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+.mode-note { font-size: 0.85rem; color: var(--muted); }
 @media (max-width: 480px) { .keys { gap: 4px; } .keys button { font-size: 1rem; } }
 .preview { display: flex; gap: 8px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 0.9rem; color: var(--muted); }
 .preview span { background: var(--key); border-radius: 6px; padding: 3px 8px; }
 .preview b { color: var(--ink); font-weight: 600; }
+.preview .at-goal, .preview .at-goal b { color: var(--good); }
 .msg { border-radius: 10px; padding: 10px 14px; font-size: 0.95rem; }
 .msg.good { background: var(--good-soft); color: var(--good); font-weight: 700; }
 .msg.bad { background: var(--bad-soft); color: var(--bad); }
@@ -251,6 +269,11 @@ ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 6
     <fieldset class="levels" id="levels" style="border:0;padding:0;margin:0;min-width:0">
       <legend class="muted" style="font-size:.85rem;margin-bottom:8px;padding:0">Difficulty</legend>
     </fieldset>
+    <div class="challenge">
+      <span class="challenge-label" id="modeLabel">Challenge</span>
+      <div class="modes" id="modes" role="radiogroup" aria-labelledby="modeLabel"></div>
+      <span class="mode-note" id="modeNote"></span>
+    </div>
 
     <section class="plate" data-sky="day" aria-label="License plate">
       <svg class="plate-sky" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true">
@@ -282,7 +305,7 @@ ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 6
         <g class="axes" stroke="#1b2a55" stroke-opacity="0.5" stroke-width="1"><path d="M12 120 H286" marker-end="url(#arAxis)"/><path d="M18 120 V34" marker-end="url(#arAxis)"/></g>
         <g class="axes" stroke="#1b2a55" stroke-opacity="0.45" stroke-width="0.9"><path d="M48 118v4M78 118v4M108 118v4M138 118v4M168 118v4M198 118v4M228 118v4M258 118v4"/></g>
       </svg>
-      <div class="plate-top"><span class="plate-state" id="plateState">Minusota</span><span class="sticker" id="lvstamp">Easy</span><button type="button" class="sticker-reveal" id="lvReveal" aria-label="Show difficulty" hidden><span>Show</span><span>level</span></button></div>
+      <div class="plate-top"><span class="sticker goal" id="goalSticker" hidden></span><button type="button" class="sticker-reveal goal-reveal" id="goalReveal" aria-label="Show the goal" hidden><span>Show</span><span>goal</span></button><span class="plate-state" id="plateState">Minusota</span><span class="sticker" id="lvstamp">Easy</span><button type="button" class="sticker-reveal" id="lvReveal" aria-label="Show difficulty" hidden><span>Show</span><span>level</span></button></div>
       <div class="digits" id="digits" aria-label="Digits"></div>
       <div class="plate-foot"><span class="plate-motto" id="plateSlogan">Land of 10,000 Plates</span></div>
       <div class="solved-stamp" id="solvedStamp" hidden>Solved</div>
@@ -385,10 +408,22 @@ ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 6
     </section>
 
     <section>
+      <h3>Challenge modes</h3>
+      <p>Pick a mode with the Challenge switch under the difficulty buttons. Points and streaks are shared across modes.</p>
+      <ul class="plain">
+        <li><b>Normal</b>: any correct equation scores, and the Left and Right totals update as you type.</li>
+        <li><b>Restricted</b>: use only the tools the plate needs. Keys the level never needs are switched off, and typing them doesn't work either: on Easy only + − × ÷ work, and on Medium and Hard the Expert tools are off. If your answer uses a tier the plate doesn't need, like √ on a plate that works with + − × ÷, you're asked to try again for the points. Hints point to an answer within the plate's tools.</li>
+        <li><b>Eco</b>: find an answer with the fewest operations. A counter shows how many you've used, and the <b>Show goal</b> sticker in the plate's top-left corner reveals the target. An answer that works but uses more operations than the goal doesn't score yet. Hints point to a shortest answer, and every key stays on, since the shortest answer can use any tool.</li>
+        <li>In Restricted and Eco the running totals are hidden, and a wrong answer just says "Not balanced".</li>
+      </ul>
+      <p>The tools come in three tiers, and the keypad groups its keys the same way: <b>Basic</b> (+ − × ÷, minus signs, brackets, joined digits), <b>Advanced</b> (√ ! ^) and <b>Expert</b> (a decimal point, !!, nth roots, and fractional powers like <code>8^(1 ÷ 3)</code>).</p>
+    </section>
+
+    <section>
       <h3>Scoring</h3>
       <ul class="plain">
         <li>Solving earns 1 point on Easy, 2 on Medium, 4 on Hard and 6 on Expert. A Random plate, or one you type in yourself, earns the points for its real level.</li>
-        <li>There are four hints, each more specific than the last: which advanced tools you can't do without, where the <code>=</code> goes, exactly which operations it uses, and what both sides equal. Each costs 1 point from that puzzle, but a solve is always worth at least 1.</li>
+        <li>There are four hints, each more specific than the last: which advanced tools you can't do without, where the <code>=</code> goes, exactly which operations it uses, and what both sides equal. In Eco they point to a shortest answer instead. Each costs 1 point from that puzzle, but a solve is always worth at least 1.</li>
         <li>Showing the answer or skipping to a new puzzle ends your streak.</li>
         <li>Any correct equation counts, not just the one the game has on file.</li>
         <li>After you solve or show the answer, you'll see the most basic answer and, when a different one is shorter, the one with the fewest operations. Every symbol counts as an operation except brackets and the <code>=</code> sign.</li>

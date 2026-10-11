@@ -306,6 +306,30 @@ const Core = (() => {
     for (const r of out) for (const q of out) if (q !== r && q.from >= r.from && q.to <= r.to) r.h = Math.max(r.h, q.h + 1);
     return out;
   }
-  return { check, fmt, tokenize, parse, evaluate, normalize, radicands };
+  // ---- how an answer is scored ----
+  // Every symbol counts as an operation except brackets and =; a decimal point counts, joining digits and a root's index don't.
+  function opCount(src) {
+    return tokenize(src).filter((t) => (t.type === 'num' || t.type === 'idx' ? t.text.includes('.') : !'()='.includes(t.type))).length;
+  }
+  // The tier of tools an answer uses, matching the solver: 1 basic (+ − × ÷, minus signs, brackets, joined digits),
+  // 2 advanced (√ ! and whole-number ^), 3 expert (a decimal point, !!, nth roots and fractional powers like 8^(1/3)).
+  function toolTier(src) {
+    let tier = 1;
+    const walk = (n) => {
+      if (n.k === 'num') { if (n.t.text.includes('.')) tier = 3; return; }
+      if (n.k === 'dfact' || n.k === 'root') tier = 3;
+      else if (n.k === 'sqrt' || n.k === 'fact') tier = Math.max(tier, 2);
+      else if (n.k === 'pow') {
+        let whole = true;
+        try { whole = nearInt(evaluate(n.b)) !== null; } catch (e) {}
+        tier = Math.max(tier, whole ? 2 : 3);
+      }
+      if (n.a) walk(n.a);
+      if (n.b) walk(n.b);
+    };
+    for (const side of normalize(src).split('=')) walk(parse(tokenize(side)));
+    return tier;
+  }
+  return { check, fmt, tokenize, parse, evaluate, normalize, radicands, opCount, toolTier };
 })();
 if (typeof module !== 'undefined') module.exports = Core;
