@@ -1,9 +1,9 @@
 // ===== License Plate Math: game UI =====
 (function () {
   const LEVELS = [
-    { id: 'easy', name: 'Easy', pts: 1, rule: 'Solvable with + − × ÷, negatives and joined digits, with several ways to do it or a one-operation answer.' },
-    { id: 'medium', name: 'Medium', pts: 2, rule: 'Either the basic operations work but only a few ways, none of them a single operation, or you need √, ! or ^.' },
-    { id: 'hard', name: 'Hard', pts: 4, rule: 'Impossible without √, ! or ^, and there are only a handful of ways to balance it, none of them a single operation.' },
+    { id: 'easy', name: 'Easy', pts: 1, rule: 'Solvable with + − × ÷ and no brackets, joined digits like 12, fractions or minus out front, or in two different ways.' },
+    { id: 'medium', name: 'Medium', pts: 2, rule: 'Either + − × ÷ work but only one way, with brackets, a joined number, a fraction or a minus out front, or it takes √, ! or ^ and there’s a simple way in (like √9 or 0!) or more than one idea.' },
+    { id: 'hard', name: 'Hard', pts: 4, rule: 'Impossible without √, ! or ^, and there’s really only one idea: a √ or ! around a calculation, or a trick stacked on a trick like (√9)!.' },
     { id: 'expert', name: 'Expert', pts: 6, rule: 'Impossible without a decimal point, a double factorial or an nth root like ³√8 or 8^(1 ÷ 3). The rarest plates.' },
     { id: 'random', name: 'Random', rule: 'Any plate from 0000 to 9999 except those with two or more zeros, all equally likely. The difficulty stays hidden until you reveal it, take a hint or finish.' },
   ];
@@ -20,16 +20,12 @@
   // ---- puzzle catalogue ----
   const isDigits = (t) => t.type === 'num' || t.type === 'idx';
   const opCount = Core.opCount;
+  const LEVEL_CODE = { e: 'easy', m: 'medium', h: 'hard', x: 'expert' }; // the solver grades each plate (solver/levels.py)
   function info(n) {
-    const [t, c, sol, short, need, opts] = PUZZLES[n].split('|'); // short: a fewest-operations answer, if sol isn't one; need, opts: see build_data.py
-    const tier = +t, count = +c, d = String(n).padStart(4, '0');
-    const open = count >= 5 || opCount(sol) === 1; // several routes, or one that takes a single operation
-    let level;
-    if (tier === 1) level = open ? 'easy' : 'medium';
-    else if (tier === 2) level = open ? 'medium' : 'hard';
-    else level = 'expert';
+    const [t, lv, sol, short, need, opts] = PUZZLES[n].split('|'); // short: a fewest-operations answer, if sol isn't one; need, opts: see build_data.py
+    const tier = +t, d = String(n).padStart(4, '0'), level = LEVEL_CODE[lv];
     const pool = (d.split('0').length - 1) < 2; // keep zero-heavy tickets out of random draws
-    return { n, d, tier, count, sol, short, need, options: Core.parseOptions(opts, sol), level, pool };
+    return { n, d, tier, sol, short, need, options: Core.parseOptions(opts, sol), level, pool };
   }
   const ALL = PUZZLES.map((_, i) => info(i));
   const POOLS = {};

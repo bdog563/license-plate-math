@@ -1,10 +1,10 @@
 """Solve all 10,000 tickets and write src/data.js.
 
-Each line of PUZZLES is "tier|count|basic|fewest|needs|options" for ticket 0000..9999:
+Each line of PUZZLES is "tier|level|basic|fewest|needs|options" for ticket 0000..9999:
   tier 1 = solvable with + − × ÷ (negatives, joined digits)
   tier 2 = also needs √, ! (incl. 0!) or ^
   tier 3 = also needs decimals, !!, an nth root or a fractional power
-  count  = distinct (equals position, value) matches at that tier (a rough "how many ways")
+  level  = e easy, m medium, h hard, x expert (the rule is in levels.py)
   basic  = the most basic answer: only that tier's tools, ranked by RANK['basic'] in solve.py
   fewest = an answer with the fewest operations (every symbol but brackets and =), any tools,
            ranked by RANK['fewest']; empty when the basic answer already has that few
@@ -21,8 +21,10 @@ import json, os, re, sys
 from multiprocessing import Pool
 sys.path.insert(0, os.path.dirname(__file__))
 from solve import analyze, fewest, needs, option_answers, show, switch_options
+from levels import level
 
 CODE = {'sqrt': 's', 'fact': 'f', 'pow': 'p', 'dec': 'd', 'dfact': 'w', 'root': 'r', 'fpow': 'q'}
+LEVEL = {'easy': 'e', 'medium': 'm', 'hard': 'h', 'expert': 'x'}
 
 def best(sols):
     return min(sols, key=lambda s: (s[0], len(show(s[3]) + show(s[4])), abs(s[2].numerator)))
@@ -48,7 +50,7 @@ def one(n):
             opts.append((t, b[0], o, text(b)))
         opts.sort(key=lambda x: (x[0], x[1]))  # lowest tier first, then the most basic answer
     opts = ';'.join(f'{o}:{"" if a == basic else a}' for t, c, o, a in opts)
-    return f'{tier}|{len(sols)}|{basic}|{short}|{need}|{opts}'
+    return f'{tier}|{LEVEL[level(d, tier)]}|{basic}|{short}|{need}|{opts}'
 
 if __name__ == '__main__':
     with Pool() as p:

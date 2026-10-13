@@ -7,8 +7,9 @@ A browser puzzle game: keep four digits in order, add operations and one `=` to 
 - `src/template.html`: page layout, CSS (light/dark color tokens at the top; the puzzle is drawn as a license plate whose `--plate-*` colors stay light in both themes; its backdrop is an inline SVG of shaded functions over a sunset or daytime sky, picked per state by `data-sky`, or a night sky for 5% of plates, which flips the plate's colors light) and the Rules screen text.
 - `src/app.js`: game UI: difficulty levels, keypad, hints, scoring, stats (saved in localStorage), and `STATES`, the pun states, slogans and skies the plate cycles through.
 - `src/core.js`: the equation checker: tokenizer, parser, exact BigInt-fraction math (floats only for irrational roots/powers), plus `opCount` and `toolTier` (how answers are scored; shared by the game and the tests).
-- `src/data.js`: generated puzzle data, one line per ticket 0000–9999: `tier|count|basic|fewest|needs|options` (`fewest` is empty when `basic` already has the fewest operations; `needs` is the tools of its tier a ticket can't do without, used by the first hint; `options` is every smallest set of Random's tool switches that solves it, each with its most basic answer; codes in build_data.py).
+- `src/data.js`: generated puzzle data, one line per ticket 0000–9999: `tier|level|basic|fewest|needs|options` (`level` is e/m/h/x for Easy/Medium/Hard/Expert, graded by `solver/levels.py`; `fewest` is empty when `basic` already has the fewest operations; `needs` is the tools of its tier a ticket can't do without, used by the first hint; `options` is every smallest set of Random's tool switches that solves it, each with its most basic answer; codes in build_data.py).
 - `solver/solve.py`: Python solver that grades every ticket (`tier` 1–3, see build_data.py docstring).
+- `solver/levels.py`: the difficulty rule (see Difficulty below).
 - `solver/build_data.py`: regenerates `src/data.js`.
 - `build.py`: assembles `index.html` from `src/`.
 - `test_checker.js`: verifies every stored solution passes the in-page checker, and that hint answers obey the modes (the most basic answer stays within its plate's tier; the fewest answer is shortest).
@@ -17,6 +18,7 @@ A browser puzzle game: keep four digits in order, add operations and one `=` to 
 - After editing anything in `src/`: `python3 build.py`
 - After changing the rules (allowed operations): update **both** `solver/solve.py` and `src/core.js`, then
   `python3 solver/build_data.py && node test_checker.js && python3 build.py`
+- After changing the difficulty rule (`solver/levels.py`): the same three commands. Stored answers don't depend on it.
 - Rules text shown to players lives in `src/template.html` (Rules screen) and the level blurbs in `src/app.js` (`LEVELS`).
 
 ## Publishing
@@ -30,9 +32,11 @@ A browser puzzle game: keep four digits in order, add operations and one `=` to 
 - Not allowed: splitting/joining computed results, multi-digit whole numbers starting with 0 (07), 0^0.
 - Precedence: √ binds to the next number/bracket, then !/!!, then ^ (right-assoc), then unary minus, then × ÷, then + −. So √9! = (√9)!, ³√8! = (³√8)!, −3! = −6, −2^2 = −4. Plain digits right before √ are an error (needs ×); the index has to be made with ⁿ√ or `root`.
 
-## Difficulty (computed in `src/app.js` from tier and count)
-- A ticket is "open" if it has ≥5 routes or its most basic answer is one operation (like 15 = 7 + 8).
-- Easy: tier 1 and open. Medium: tier 1 not open, or tier 2 open. Hard: tier 2 not open. Expert: tier 3.
+## Difficulty (`solver/levels.py`, stored in data.js; fitted to the owner's hand ratings of 105 borderline plates)
+- A plate's answers are grouped into **ideas**: moving terms across the `=`, flipping every sign (mirror images), or putting the same `!` or √ on both sides doesn't make a new idea. The search keeps the shortest tree per value in each class, with make()'s bounds.
+- Basic plates (tier 1): **Easy** if one idea is clean (no brackets, joined digits, fractions or minus out front, like `1 + 2 × 4 = 9`) or there are two or more ideas; otherwise **Medium** (`2 = (5 + 7) ÷ 6`, `15 = 8 + 7`, `3 × (−7 + 9) = 6`, `3 = 4 ÷ 8 × 6`).
+- Advanced plates (tier 2): each idea is **simple** (every √ ! ^ on typed digits, `√9`, `3!`, `2^5`, or a giveaway `0!`, `49^0`, `1^28`), **stacked** (an advanced op with another anywhere inside it, giveaways included: `(√9)!`, `√(8 + 7^0)`, `√(3! × 8 + 1)`, `(7 − 3!)^8`; or a factorial of 6 or more) or **ordinary** (√ ! ^ around a calculation, or joined digits: `√(9 + 8 × 5)`, `(8 − 7)^5`). **Medium** if any idea is simple, or two are ordinary, or ordinary plus plausible stacked ideas (at most 6 operations, advanced ops nested at most two deep) reach three; otherwise **Hard** (in effect, a single idea).
+- **Expert**: tier 3 (needs a decimal point, !!, an nth root or a fractional power).
 - Random: draws equally from every ticket with fewer than two zeros and hides the level (stamp and "Worth N points") until the player clicks "Show difficulty", takes a hint, solves or shows the answer. Points still follow the real level. "Play your own digits" switches to Random.
 - Random's tool switches (`SWITCHES` in app.js: √ ! ^ ⁿ√ !! ., fractional powers ride on ^): Random only deals plates with an `options` set that avoids every switched-off tool. Hints, Show answer and Restricted's tier check then use `Core.answerFor` (the most basic answer that avoids them), and Restricted grays out those keys. Paused in Eco. The solver finds the sets with `mex()`, a one-pass version of `make()` that tracks tools instead of trees; the two must search exactly the same way.
 - Tickets with two or more zeros are excluded from all random draws, Random included (still playable via "Play your own digits").

@@ -1,19 +1,22 @@
 // Checks that every stored solution in src/data.js passes the in-page checker, and that the answers the
 // hints point to are allowed in each mode: the most basic answer (Normal and Restricted hints) never uses a tool
-// tier above its plate's, and the Eco hint answer has the fewest operations on file. For Random's tool switches,
-// every combination of switches off gets an answer that avoids them on every plate that can be done without them.
+// tier above its plate's, and the Eco hint answer has the fewest operations on file. Each plate's level fits its
+// tier. For Random's tool switches, every combination of switches off gets an answer that avoids them on every
+// plate that can be done without them.
 // Run from the project root:  node test_checker.js
 const fs = require('fs');
 const Core = require('./src/core.js');
 const PUZZLES = new Function(fs.readFileSync('./src/data.js', 'utf8') + 'return PUZZLES;')();
 const NEW = { 2: 'sfp', 3: 'dwrq' }; // need codes each tier's Toolbox hint may name (see solver/build_data.py)
+const LEVEL_TIERS = { e: [1], m: [1, 2], h: [2], x: [3] }; // which tool tiers each stored level can have
 const SWITCHES = ['s', 'f', 'p', 'd', 'w', 'r'];
 const COMBOS = Array.from({ length: 64 }, (_, m) => new Set(SWITCHES.filter((c, i) => m & (1 << i))));
 let bad = 0, total = 0, picks = 0;
 const fail = (...a) => { bad++; if (bad <= 10) console.log('FAIL', ...a); };
 PUZZLES.forEach((row, n) => {
   const d = String(n).padStart(4, '0');
-  const [t, , basic, short, need, optField] = row.split('|'), tier = +t;
+  const [t, lv, basic, short, need, optField] = row.split('|'), tier = +t;
+  if (!(LEVEL_TIERS[lv] || []).includes(tier)) fail(d, `level "${lv}" doesn't fit a tier ${tier} plate`);
   const options = Core.parseOptions(optField, basic);
   for (const sol of [basic, short, ...options.map((o) => o.sol).filter((x) => x !== basic)].filter(Boolean)) {
     total++;
