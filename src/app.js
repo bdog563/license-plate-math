@@ -450,6 +450,16 @@
     load(p);
   }
   $('newBtn').addEventListener('click', () => newPuzzle(false));
+  // Once a plate is solved or shown, Enter or → deals the next one at the same level and mode. Keys meant for
+  // another working control are left alone: Enter clicks a focused button, arrows move between radio choices.
+  document.addEventListener('keydown', (e) => {
+    if ((e.key !== 'Enter' && e.key !== 'ArrowRight') || e.repeat || e.isComposing || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (!(state.solved || state.revealed) || $('view-play').hidden) return;
+    const c = e.target.closest && e.target.closest('input, textarea, select, button, a, [contenteditable]');
+    if (c && c !== eq && !c.disabled && (e.key === 'Enter' || !c.matches('button, a'))) return;
+    e.preventDefault();
+    newPuzzle(false);
+  });
   $('customForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const v = $('custom').value.trim();
